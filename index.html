@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="pt-BR">
 <head>
@@ -44,6 +45,8 @@
     h1 { margin: 0 0 8px; font-size: clamp(26px, 4vw, 42px); letter-spacing: -.03em; }
     p { color: var(--muted); line-height: 1.5; }
     .credits { margin-top: 10px; font-size: 14px; color: #d5dae5; }
+    footer { max-width: 1240px; margin: 0 auto; padding: 0 22px 28px; }
+    footer .credits { margin: 0; text-align: center; }
     button, input, select, textarea { font: inherit; }
 
     .app {
@@ -86,6 +89,8 @@
     }
     input:focus, select:focus, textarea:focus { border-color: var(--accent2); box-shadow: 0 0 0 3px rgba(116,167,255,.16); }
     textarea { min-height: 90px; resize: vertical; }
+    input[type="file"] { padding: 8px; font-size: 13px; }
+    .import-note { margin-top: 8px; font-size: 12px; color: var(--muted); line-height: 1.4; }
 
     .btn {
       border: 1px solid rgba(255,255,255,.1);
@@ -241,7 +246,6 @@
   <header>
     <h1>GL Maker: Groove Lab Maker</h1>
     <p>Crie levadas de 1 ou 2 compassos, edite acordes/pausas visualmente e exporte o plugin MuseScore completo: <strong>GL - Groove Lab.qml</strong>.</p>
-    <p class="credits">Desenvolvido pelo professor Glauber Santiago — DAC/UFSCar<br>servidores.ufscar.br/glauber/ • sites.google.com/view/glauberia</p>
   </header>
 
   <main class="app">
@@ -257,6 +261,16 @@
       <div class="code-actions">
         <button class="btn blue full" id="downloadBtn">Baixar plugin .qml</button>
         <button class="btn full" id="copyBtn">Copiar código</button>
+      </div>
+      <div class="section-title">Importação</div>
+      <div class="field">
+        <label>Importar estilos/levadas de um plugin GL antigo (.qml)</label>
+        <input id="pluginImportInput" type="file" accept=".qml,.txt,text/plain" />
+        <div class="import-note">Lê as funções <strong>generateGroove</strong> do plugin exportado e recria os estilos no app.</div>
+      </div>
+      <div class="toolbar">
+        <button class="btn small" id="importAppendBtn">Importar estilos</button>
+        <button class="btn small danger" id="importReplaceBtn">Substituir tudo</button>
       </div>
       <div id="status" class="status">Pronto para editar.</div>
     </aside>
@@ -337,18 +351,31 @@
     </section>
   </main>
 
+  <footer>
+    <p class="credits">Desenvolvido pelo professor Glauber Santiago — DAC/UFSCar<br>servidores.ufscar.br/glauber/ • sites.google.com/view/glauberia</p>
+  </footer>
+
   <script>
     const state = {
       selectedGroove: 0,
       selectedEvent: -1,
       grooves: [
-        { name: "Rock", bars: 1, events: [rest(1,4), chord(1,8), chord(1,8), rest(1,4), chord(1,4)] },
-        { name: "Bossa 4/4", bars: 1, events: [chord(1,8), chord(1,8), rest(1,8), chord(1,4), chord(1,8)] },
-        { name: "Bossa 2 compassos", bars: 2, events: [chord(1,8), rest(1,8), chord(1,4), chord(1,8), chord(1,8), rest(1,4), chord(1,4)] },
-        { name: "Contratempo", bars: 1, events: [rest(1,8), chord(1,16), rest(1,8), chord(1,16), rest(1,8), chord(1,16), chord(1,8)] },
-        { name: "Swing", bars: 2, events: [rest(1,8), chord(1,8), rest(1,4), chord(1,8), chord(1,8), rest(1,4), chord(1,4), rest(1,8), chord(1,8), chord(1,4)] },
-        { name: "Virada Simples", bars: 1, events: [chord(1,16), chord(1,16), rest(1,16), chord(1,16), chord(1,8), rest(1,8), chord(1,4)] },
-        { name: "Virada 2 Compassos", bars: 2, events: [rest(1,4), chord(1,8), chord(1,8), rest(1,4), chord(1,4), chord(1,16), chord(1,16), rest(1,16), chord(1,16), chord(1,8), chord(1,8), chord(1,4)] }
+        { name: "Rock 1", bars: 1, events: [chord(1,2), rest(1,8), chord(1,8), rest(1,4)] },
+        { name: "Rock 2", bars: 1, events: [rest(1,4), chord(1,8), chord(1,8), rest(1,4), chord(1,4)] },
+        { name: "Contratempo", bars: 1, events: [rest(1,8), chord(1,8), rest(1,8), chord(1,8), rest(1,8), chord(1,8), rest(1,8), chord(1,8)] },
+        { name: "Colcheias", bars: 1, events: [chord(1,8), chord(1,8), chord(1,8), chord(1,8), chord(1,8), chord(1,8), chord(1,8), chord(1,8)] },
+        { name: "Bossa 4/4 1", bars: 2, events: [chord(1,4), chord(1,4), rest(1,8), chord(1,4), chord(1,8), rest(1,8), chord(1,4), chord(1,8), chord(1,4), chord(1,4)] },
+        { name: "Bossa 4/4 2", bars: 2, events: [rest(1,4), chord(1,4), rest(1,8), chord(1,4), chord(1,8), rest(1,8), chord(1,4), chord(1,8), chord(1,2)] },
+        { name: "Bossa 2/4 1", bars: 1, events: [chord(1,8), chord(1,8), rest(1,16), chord(1,8), chord(1,16), rest(1,16), chord(1,8), chord(1,16), chord(1,8), chord(1,8)] },
+        { name: "Bossa 2/4 2", bars: 1, events: [rest(1,8), chord(1,8), rest(1,16), chord(1,8), chord(1,16), rest(1,16), chord(1,8), chord(1,16), rest(1,8), chord(1,8)] },
+        { name: "Bossa 2/4 3", bars: 1, events: [rest(1,8), chord(1,8), chord(1,16), chord(1,8), chord(1,16), rest(1,8), rest(1,16), chord(1,16)] },
+        { name: "Swing 1", bars: 1, events: [rest(1,8), chord(1,8), rest(1,8), chord(1,8), rest(1,8), rest(1,8), rest(1,8), chord(1,8)] },
+        { name: "Swing 2", bars: 1, events: [chord(1,2), rest(1,8), chord(1,8)] },
+        { name: "Swing 3", bars: 1, events: [chord(1,8), rest(1,8), rest(1,8), chord(1,8)] },
+        { name: "Swing 4", bars: 1, events: [chord(1,4), chord(1,4), chord(1,8), chord(1,8), rest(1,8), chord(1,8)] },
+        { name: "Swing 5", bars: 1, events: [rest(1,4), rest(1,8), chord(1,8)] },
+        { name: "Semibreve", bars: 1, events: [chord(1,1)] },
+        { name: "Mínima", bars: 1, events: [chord(1,2)] }
       ]
     };
 
@@ -510,6 +537,67 @@
       validateAndRender('Evento movido.');
     }
 
+    document.getElementById('importAppendBtn').onclick = () => handlePluginImport('append');
+    document.getElementById('importReplaceBtn').onclick = () => handlePluginImport('replace');
+
+    function uniqueGrooveName(name, existingNames){
+      let base = String(name || 'Estilo importado').trim() || 'Estilo importado';
+      if (!existingNames.has(base)) { existingNames.add(base); return base; }
+      let i = 2;
+      while (existingNames.has(base + ' ' + i)) i++;
+      const finalName = base + ' ' + i;
+      existingNames.add(finalName);
+      return finalName;
+    }
+
+    function parseGroovesFromPluginCode(code){
+      const imported = [];
+      const functionRegex = /function\s+[A-Za-z_$][\w$]*\s*\(\)\s*\{\s*generateGroove\(\s*((?:"(?:\\.|[^"\\])*")|(?:'(?:\\.|[^'\\])*'))\s*,\s*(\[[\s\S]*?\])\s*\)\s*;?\s*\}/g;
+      let match;
+      while ((match = functionRegex.exec(code)) !== null) {
+        let name;
+        try { name = JSON.parse(match[1].replace(/^'/, '"').replace(/'$/, '"')); }
+        catch { name = match[1].slice(1, -1); }
+        const events = [];
+        const eventRegex = /\{\s*kind\s*:\s*["'](chord|rest)["']\s*,\s*z\s*:\s*(\d+)\s*,\s*n\s*:\s*(\d+)\s*\}/g;
+        let evMatch;
+        while ((evMatch = eventRegex.exec(match[2])) !== null) {
+          events.push({ kind: evMatch[1], z: Number(evMatch[2]), n: Number(evMatch[3]) });
+        }
+        if (events.length > 0) {
+          const units = events.reduce((sum, ev) => sum + (16 * ev.z / ev.n), 0);
+          const bars = Math.max(1, Math.min(2, Math.round(units / 16) || 1));
+          imported.push({ name, bars, events });
+        }
+      }
+      return imported;
+    }
+
+    async function handlePluginImport(mode){
+      const input = document.getElementById('pluginImportInput');
+      const file = input.files && input.files[0];
+      if (!file) return setStatus('Escolha um arquivo .qml para importar.', 'bad');
+      try {
+        const code = await file.text();
+        let imported = parseGroovesFromPluginCode(code);
+        if (!imported.length) return setStatus('Não encontrei estilos gerados por generateGroove nesse plugin.', 'bad');
+        const existingNames = new Set(mode === 'replace' ? [] : state.grooves.map(g => g.name));
+        imported = imported.map(g => ({ ...g, name: uniqueGrooveName(g.name, existingNames) }));
+        if (mode === 'replace') {
+          state.grooves = imported;
+          state.selectedGroove = 0;
+        } else {
+          const startIndex = state.grooves.length;
+          state.grooves.push(...imported);
+          state.selectedGroove = startIndex;
+        }
+        state.selectedEvent = -1;
+        validateAndRender(`${imported.length} estilo(s) importado(s) do plugin.`);
+      } catch (err) {
+        setStatus('Falha ao importar o plugin: ' + err.message, 'bad');
+      }
+    }
+
     document.getElementById('copyBtn').onclick = async () => {
       try { await navigator.clipboard.writeText(generatePluginCode()); setStatus('Código copiado para a área de transferência.', 'good'); }
       catch { setStatus('Não consegui copiar automaticamente. Selecione o código e copie manualmente.', 'bad'); }
@@ -556,8 +644,8 @@ MuseScore {
     requiresScore: true
     pluginType: "dialog"
 
-    width: 390
-    height: 780
+    width: 430
+    height: 760
 
     property string statusText: "Selecione uma cabeça de nota, escolha sua função e clique em um acorde ou levada."
     property int referenceDegreeIndex: 0
@@ -1033,13 +1121,20 @@ ${grooveFunctions()}
         anchors.fill: parent
         color: "#ECECEC"
 
-        ColumnLayout {
+        ScrollView {
+            id: scrollArea
             anchors.fill: parent
-            anchors.margins: 8
-            spacing: 5
+            anchors.margins: 6
+            clip: true
+            contentWidth: availableWidth
+            ScrollBar.vertical.policy: ScrollBar.AsNeeded
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+
+            ColumnLayout {
+                width: scrollArea.availableWidth
+                spacing: 5
 
             Label { text: "GL: Groove Lab"; font.bold: true; font.pixelSize: 12; Layout.alignment: Qt.AlignHCenter }
-            Label { text: "Desenvolvido pelo professor Glauber Santiago - UFSCar"; wrapMode: Text.WordWrap; horizontalAlignment: Text.AlignHCenter; font.pixelSize: 8; color: "#666"; Layout.fillWidth: true; Layout.alignment: Qt.AlignHCenter }
             Label { text: "A nota selecionada é:"; font.bold: true; Layout.fillWidth: true }
 
             GridLayout {
@@ -1068,11 +1163,22 @@ ${grooveFunctions()}
 
             Rectangle { height: 1; color: "#D0D0D0"; Layout.fillWidth: true }
             Label { text: "Levadas e Viradas"; font.bold: true; Layout.fillWidth: true }
+            Label { text: "A lista rola verticalmente; os estilos aparecem em duas colunas para caberem mesmo quando houver muitos."; wrapMode: Text.WordWrap; font.pixelSize: 8; color: "#666"; Layout.fillWidth: true }
+
+            GridLayout {
+                columns: 2
+                Layout.fillWidth: true
+                columnSpacing: 5
+                rowSpacing: 5
 
 ${grooveButtons()}
+            }
 
-            Item { Layout.fillHeight: true }
+            Item { height: 8 }
             Label { text: statusText; wrapMode: Text.WordWrap; horizontalAlignment: Text.AlignHCenter; font.pixelSize: 9; color: "#555"; Layout.fillWidth: true; Layout.alignment: Qt.AlignHCenter }
+            Rectangle { height: 1; color: "#D0D0D0"; Layout.fillWidth: true }
+            Label { text: "Desenvolvido pelo professor Glauber Santiago - UFSCar\\nservidores.ufscar.br/glauber/ • sites.google.com/view/glauberia"; wrapMode: Text.WordWrap; horizontalAlignment: Text.AlignHCenter; font.pixelSize: 8; color: "#666"; Layout.fillWidth: true; Layout.alignment: Qt.AlignHCenter }
+            }
         }
     }
 }
