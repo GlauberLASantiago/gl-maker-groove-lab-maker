@@ -1,0 +1,1085 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GL Maker: Groove Lab Maker</title>
+  <style>
+    :root {
+      --bg: #101114;
+      --panel: #191b20;
+      --panel2: #22252c;
+      --text: #f2f3f5;
+      --muted: #aab0bd;
+      --line: #343944;
+      --accent: #77d7a8;
+      --accent2: #74a7ff;
+      --danger: #ff6f7d;
+      --warn: #ffd166;
+      --rest: #3a3f4a;
+      --chord: #2f7355;
+      --ghost: #272b33;
+      --shadow: 0 16px 50px rgba(0,0,0,.35);
+      --radius: 18px;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(116,167,255,.18), transparent 32rem),
+        radial-gradient(circle at 80% 10%, rgba(119,215,168,.15), transparent 28rem),
+        var(--bg);
+      min-height: 100vh;
+    }
+
+    header {
+      padding: 28px 22px 12px;
+      max-width: 1240px;
+      margin: 0 auto;
+    }
+
+    h1 { margin: 0 0 8px; font-size: clamp(26px, 4vw, 42px); letter-spacing: -.03em; }
+    p { color: var(--muted); line-height: 1.5; }
+    .credits { margin-top: 10px; font-size: 14px; color: #d5dae5; }
+    button, input, select, textarea { font: inherit; }
+
+    .app {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 12px 22px 36px;
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 18px;
+    }
+
+    .panel {
+      background: linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.015)), var(--panel);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .sidebar { padding: 16px; position: sticky; top: 16px; align-self: start; }
+    .main { padding: 16px; min-width: 0; }
+
+    .section-title {
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .14em;
+      margin: 18px 0 10px;
+    }
+
+    .field { margin-bottom: 12px; }
+    label { display: block; color: var(--muted); font-size: 13px; margin: 0 0 6px; }
+    input, select, textarea {
+      width: 100%;
+      color: var(--text);
+      background: var(--panel2);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 11px;
+      outline: none;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--accent2); box-shadow: 0 0 0 3px rgba(116,167,255,.16); }
+    textarea { min-height: 90px; resize: vertical; }
+
+    .btn {
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 13px;
+      background: var(--panel2);
+      color: var(--text);
+      padding: 10px 12px;
+      cursor: pointer;
+      transition: transform .08s ease, background .15s ease, border-color .15s ease;
+    }
+    .btn:hover { background: #2a2e38; border-color: rgba(255,255,255,.18); }
+    .btn:active { transform: translateY(1px); }
+    .btn.primary { background: linear-gradient(180deg, #83e9b5, #53b983); color: #07140e; font-weight: 800; border: none; }
+    .btn.blue { background: linear-gradient(180deg, #8db9ff, #5b8ee6); color: #061225; font-weight: 800; border: none; }
+    .btn.danger { background: rgba(255,111,125,.13); border-color: rgba(255,111,125,.28); color: #ffd1d6; }
+    .btn.small { padding: 7px 9px; border-radius: 10px; font-size: 13px; }
+    .btn.full { width: 100%; }
+
+    .row { display: flex; gap: 8px; align-items: center; }
+    .row > * { flex: 1; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+
+    .groove-list { display: grid; gap: 8px; }
+    .groove-item {
+      padding: 10px;
+      border-radius: 14px;
+      background: var(--panel2);
+      border: 1px solid transparent;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+    }
+    .groove-item.active { border-color: var(--accent); background: rgba(119,215,168,.12); }
+    .groove-meta { color: var(--muted); font-size: 12px; margin-top: 2px; }
+
+    .status {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-radius: 13px;
+      background: rgba(116,167,255,.1);
+      border: 1px solid rgba(116,167,255,.18);
+      color: #dce9ff;
+      font-size: 13px;
+    }
+    .status.bad { background: rgba(255,111,125,.12); border-color: rgba(255,111,125,.22); color: #ffd4d8; }
+    .status.good { background: rgba(119,215,168,.1); border-color: rgba(119,215,168,.22); color: #dcffed; }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: 1.15fr .85fr;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+
+    .card { background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.07); border-radius: 16px; padding: 14px; }
+    .card h2 { margin: 0 0 10px; font-size: 18px; }
+
+    .timeline-wrap { overflow-x: auto; padding-bottom: 8px; }
+    .timeline {
+      min-width: 680px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      overflow: hidden;
+      background: #121419;
+    }
+    .bar-labels, .grid, .events { display: grid; }
+    .bar-labels {
+      grid-template-columns: repeat(var(--steps), minmax(26px, 1fr));
+      background: #171a20;
+      border-bottom: 1px solid var(--line);
+    }
+    .tick-label {
+      min-height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: 11px;
+      border-right: 1px solid rgba(255,255,255,.055);
+    }
+    .tick-label.strong { color: var(--text); font-weight: 800; background: rgba(255,255,255,.035); }
+    .events {
+      grid-template-columns: repeat(var(--steps), minmax(26px, 1fr));
+      min-height: 110px;
+      position: relative;
+      background:
+        repeating-linear-gradient(to right, rgba(255,255,255,.065) 0 1px, transparent 1px calc(100% / var(--steps)));
+    }
+    .event {
+      margin: 16px 3px;
+      border-radius: 12px;
+      padding: 10px 8px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      min-height: 72px;
+      color: white;
+      cursor: pointer;
+      border: 1px solid rgba(255,255,255,.16);
+      user-select: none;
+      overflow: hidden;
+    }
+    .event.chord { background: linear-gradient(180deg, rgba(119,215,168,.82), rgba(47,115,85,.92)); color: #04100a; font-weight: 900; }
+    .event.rest { background: linear-gradient(180deg, #515868, var(--rest)); color: #f3f5fa; }
+    .event.selected { outline: 3px solid var(--accent2); outline-offset: -3px; }
+    .event .kind { font-size: 13px; }
+    .event .dur { font-size: 11px; opacity: .78; margin-top: 3px; }
+
+    .editor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .event-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .event-table th, .event-table td { border-bottom: 1px solid rgba(255,255,255,.08); padding: 8px 6px; text-align: left; }
+    .event-table th { color: var(--muted); font-weight: 600; }
+    .event-table tr { cursor: pointer; }
+    .event-table tr.active { background: rgba(116,167,255,.12); }
+
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: #0b0c10;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      color: #d7f7e5;
+      padding: 12px;
+      max-height: 360px;
+      overflow: auto;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .meter {
+      height: 12px;
+      background: #0d0f13;
+      border: 1px solid var(--line);
+      border-radius: 99px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+    .meter > span { display: block; height: 100%; background: linear-gradient(90deg, var(--accent2), var(--accent)); width: 0; }
+    .hint { color: var(--muted); font-size: 13px; }
+    .code-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    @media (max-width: 920px) {
+      .app { grid-template-columns: 1fr; }
+      .sidebar { position: static; }
+      .topbar, .editor-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>GL Maker: Groove Lab Maker</h1>
+    <p>Crie levadas de 1 ou 2 compassos, edite acordes/pausas visualmente e exporte o plugin MuseScore completo: <strong>GL - Groove Lab.qml</strong>.</p>
+    <p class="credits">Desenvolvido pelo professor Glauber Santiago — DAC/UFSCar<br>servidores.ufscar.br/glauber/ • sites.google.com/view/glauberia</p>
+  </header>
+
+  <main class="app">
+    <aside class="panel sidebar">
+      <button class="btn primary full" id="addGrooveBtn">+ Nova levada</button>
+      <div class="section-title">Levadas</div>
+      <div id="grooveList" class="groove-list"></div>
+      <div class="toolbar">
+        <button class="btn small" id="duplicateGrooveBtn">Duplicar</button>
+        <button class="btn small danger" id="deleteGrooveBtn">Excluir</button>
+      </div>
+      <div class="section-title">Exportação</div>
+      <div class="code-actions">
+        <button class="btn blue full" id="downloadBtn">Baixar plugin .qml</button>
+        <button class="btn full" id="copyBtn">Copiar código</button>
+      </div>
+      <div id="status" class="status">Pronto para editar.</div>
+    </aside>
+
+    <section class="panel main">
+      <div class="topbar">
+        <div class="card">
+          <h2>Configuração da levada</h2>
+          <div class="row">
+            <div class="field">
+              <label>Nome do botão no plugin</label>
+              <input id="grooveName" placeholder="Ex.: Samba 1" />
+            </div>
+            <div class="field">
+              <label>Compassos</label>
+              <select id="barsSelect">
+                <option value="1">1 compasso</option>
+                <option value="2">2 compassos</option>
+              </select>
+            </div>
+          </div>
+          <div class="hint" id="durationHint"></div>
+          <div class="meter"><span id="durationMeter"></span></div>
+        </div>
+
+        <div class="card">
+          <h2>Adicionar evento</h2>
+          <div class="row">
+            <div class="field">
+              <label>Tipo</label>
+              <select id="kindInput">
+                <option value="chord">Acorde</option>
+                <option value="rest">Pausa</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Duração</label>
+              <select id="durationInput">
+                <option value="1/16">Semicolcheia 1/16</option>
+                <option value="1/8">Colcheia 1/8</option>
+                <option value="1/4">Semínima 1/4</option>
+                <option value="1/2">Mínima 1/2</option>
+                <option value="1/1">Semibreve 1/1</option>
+              </select>
+            </div>
+          </div>
+          <button class="btn primary full" id="addEventBtn">Adicionar no fim</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Linha do tempo</h2>
+        <div class="timeline-wrap">
+          <div class="timeline" id="timeline"></div>
+        </div>
+        <div class="toolbar">
+          <button class="btn small" id="moveLeftBtn">← Mover</button>
+          <button class="btn small" id="moveRightBtn">Mover →</button>
+          <button class="btn small" id="toggleKindBtn">Acorde/Pausa</button>
+          <button class="btn small danger" id="deleteEventBtn">Excluir evento</button>
+        </div>
+      </div>
+
+      <div class="editor-grid">
+        <div class="card">
+          <h2>Eventos</h2>
+          <table class="event-table">
+            <thead><tr><th>#</th><th>Tipo</th><th>Duração</th><th>Ações</th></tr></thead>
+            <tbody id="eventRows"></tbody>
+          </table>
+        </div>
+        <div class="card">
+          <h2>Código gerado</h2>
+          <p class="hint">Este preview atualiza automaticamente. O arquivo baixado já contém acordes, levadas, viradas e interface QML completa.</p>
+          <pre id="codePreview"></pre>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const state = {
+      selectedGroove: 0,
+      selectedEvent: -1,
+      grooves: [
+        { name: "Rock", bars: 1, events: [rest(1,4), chord(1,8), chord(1,8), rest(1,4), chord(1,4)] },
+        { name: "Bossa 4/4", bars: 1, events: [chord(1,8), chord(1,8), rest(1,8), chord(1,4), chord(1,8)] },
+        { name: "Bossa 2 compassos", bars: 2, events: [chord(1,8), rest(1,8), chord(1,4), chord(1,8), chord(1,8), rest(1,4), chord(1,4)] },
+        { name: "Contratempo", bars: 1, events: [rest(1,8), chord(1,16), rest(1,8), chord(1,16), rest(1,8), chord(1,16), chord(1,8)] },
+        { name: "Swing", bars: 2, events: [rest(1,8), chord(1,8), rest(1,4), chord(1,8), chord(1,8), rest(1,4), chord(1,4), rest(1,8), chord(1,8), chord(1,4)] },
+        { name: "Virada Simples", bars: 1, events: [chord(1,16), chord(1,16), rest(1,16), chord(1,16), chord(1,8), rest(1,8), chord(1,4)] },
+        { name: "Virada 2 Compassos", bars: 2, events: [rest(1,4), chord(1,8), chord(1,8), rest(1,4), chord(1,4), chord(1,16), chord(1,16), rest(1,16), chord(1,16), chord(1,8), chord(1,8), chord(1,4)] }
+      ]
+    };
+
+    function chord(z,n){ return {kind:"chord", z, n}; }
+    function rest(z,n){ return {kind:"rest", z, n}; }
+    function current(){ return state.grooves[state.selectedGroove]; }
+    function totalUnits(g = current()){ return g.events.reduce((sum, ev) => sum + (16 * ev.z / ev.n), 0); }
+    function targetUnits(g = current()){ return g.bars * 16; }
+    function durationText(ev){ return `${ev.z}/${ev.n}`; }
+    function parseDuration(value){ const [z,n] = value.split('/').map(Number); return {z,n}; }
+    function safeFunctionName(name, i){
+      return "generate" + name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]+/g, " ").trim().split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join("") + "Groove" + i;
+    }
+    function jsString(s){ return JSON.stringify(String(s)); }
+
+    function setStatus(msg, type = ""){
+      const el = document.getElementById('status');
+      el.textContent = msg;
+      el.className = 'status' + (type ? ' ' + type : '');
+    }
+
+    function renderGrooveList(){
+      const list = document.getElementById('grooveList');
+      list.innerHTML = '';
+      state.grooves.forEach((g, i) => {
+        const item = document.createElement('div');
+        item.className = 'groove-item' + (i === state.selectedGroove ? ' active' : '');
+        item.innerHTML = `<div><strong>${escapeHtml(g.name)}</strong><div class="groove-meta">${g.bars} compasso(s) · ${g.events.length} eventos</div></div><span>${totalUnits(g)}/${targetUnits(g)}</span>`;
+        item.onclick = () => { state.selectedGroove = i; state.selectedEvent = -1; renderAll(); };
+        list.appendChild(item);
+      });
+    }
+
+    function renderForm(){
+      const g = current();
+      document.getElementById('grooveName').value = g.name;
+      document.getElementById('barsSelect').value = String(g.bars);
+      const units = totalUnits(g), target = targetUnits(g);
+      const ok = units === target;
+      const hint = document.getElementById('durationHint');
+      hint.textContent = ok ? `Duração correta: ${g.bars} compasso(s).` : `Duração atual: ${units}/16. Alvo: ${target}/16. Ajuste eventos até fechar o compasso.`;
+      hint.style.color = ok ? 'var(--accent)' : (units > target ? 'var(--danger)' : 'var(--warn)');
+      document.getElementById('durationMeter').style.width = Math.min(100, (units / target) * 100) + '%';
+    }
+
+    function renderTimeline(){
+      const g = current();
+      const steps = targetUnits(g);
+      const timeline = document.getElementById('timeline');
+      timeline.style.setProperty('--steps', steps);
+      let labels = '<div class="bar-labels">';
+      for (let i = 0; i < steps; i++) {
+        const strong = i % 4 === 0;
+        const beat = Math.floor(i / 4) + 1;
+        labels += `<div class="tick-label ${strong ? 'strong' : ''}">${strong ? beat : ''}</div>`;
+      }
+      labels += '</div>';
+      let pos = 1;
+      let events = '<div class="events">';
+      g.events.forEach((ev, idx) => {
+        const span = 16 * ev.z / ev.n;
+        events += `<div class="event ${ev.kind} ${idx === state.selectedEvent ? 'selected' : ''}" style="grid-column:${pos}/span ${span}" data-idx="${idx}"><div class="kind">${ev.kind === 'chord' ? 'Acorde' : 'Pausa'}</div><div class="dur">${durationText(ev)}</div></div>`;
+        pos += span;
+      });
+      events += '</div>';
+      timeline.innerHTML = labels + events;
+      timeline.querySelectorAll('.event').forEach(el => el.onclick = () => { state.selectedEvent = Number(el.dataset.idx); renderAll(); });
+    }
+
+    function renderRows(){
+      const tbody = document.getElementById('eventRows');
+      tbody.innerHTML = '';
+      current().events.forEach((ev, idx) => {
+        const tr = document.createElement('tr');
+        tr.className = idx === state.selectedEvent ? 'active' : '';
+        tr.onclick = () => { state.selectedEvent = idx; renderAll(); };
+        tr.innerHTML = `<td>${idx + 1}</td><td>${ev.kind === 'chord' ? 'Acorde' : 'Pausa'}</td><td>${durationText(ev)}</td><td><button class="btn small" data-edit="${idx}">Editar</button></td>`;
+        tbody.appendChild(tr);
+      });
+      tbody.querySelectorAll('button[data-edit]').forEach(btn => btn.onclick = (e) => {
+        e.stopPropagation();
+        const idx = Number(btn.dataset.edit);
+        const ev = current().events[idx];
+        const kind = prompt('Tipo do evento: chord ou rest', ev.kind);
+        if (!kind || !['chord','rest'].includes(kind)) return;
+        const dur = prompt('Duração no formato z/n. Ex.: 1/8, 1/4, 1/16', `${ev.z}/${ev.n}`);
+        if (!dur || !/^\d+\/\d+$/.test(dur)) return;
+        const [z,n] = dur.split('/').map(Number);
+        current().events[idx] = {kind, z, n};
+        validateAndRender('Evento editado.');
+      });
+    }
+
+    function renderCode(){ document.getElementById('codePreview').textContent = generatePluginCode(); }
+    function renderAll(){ renderGrooveList(); renderForm(); renderTimeline(); renderRows(); renderCode(); }
+
+    function validateAndRender(msg){
+      const units = totalUnits(), target = targetUnits();
+      renderAll();
+      if (units === target) setStatus(msg + ' A levada fecha corretamente.', 'good');
+      else if (units > target) setStatus(msg + ` Atenção: passou do tamanho alvo (${units}/${target}).`, 'bad');
+      else setStatus(msg + ` Falta completar ${target - units}/16.`, '');
+    }
+
+    function escapeHtml(str){ return String(str).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+    document.getElementById('grooveName').addEventListener('input', e => { current().name = e.target.value || 'Sem nome'; renderGrooveList(); renderCode(); });
+    document.getElementById('barsSelect').addEventListener('change', e => { current().bars = Number(e.target.value); validateAndRender('Quantidade de compassos alterada.'); });
+    document.getElementById('addEventBtn').onclick = () => {
+      const kind = document.getElementById('kindInput').value;
+      const d = parseDuration(document.getElementById('durationInput').value);
+      current().events.push({ kind, z: d.z, n: d.n });
+      state.selectedEvent = current().events.length - 1;
+      validateAndRender('Evento adicionado.');
+    };
+    document.getElementById('addGrooveBtn').onclick = () => {
+      state.grooves.push({ name: 'Nova Levada', bars: 1, events: [chord(1,4), rest(1,4), chord(1,4), chord(1,4)] });
+      state.selectedGroove = state.grooves.length - 1;
+      state.selectedEvent = -1;
+      validateAndRender('Nova levada criada.');
+    };
+    document.getElementById('duplicateGrooveBtn').onclick = () => {
+      const copy = JSON.parse(JSON.stringify(current()));
+      copy.name += ' cópia';
+      state.grooves.push(copy);
+      state.selectedGroove = state.grooves.length - 1;
+      state.selectedEvent = -1;
+      validateAndRender('Levada duplicada.');
+    };
+    document.getElementById('deleteGrooveBtn').onclick = () => {
+      if (state.grooves.length <= 1) return setStatus('Mantenha pelo menos uma levada.', 'bad');
+      state.grooves.splice(state.selectedGroove, 1);
+      state.selectedGroove = Math.max(0, state.selectedGroove - 1);
+      state.selectedEvent = -1;
+      validateAndRender('Levada excluída.');
+    };
+    document.getElementById('deleteEventBtn').onclick = () => {
+      if (state.selectedEvent < 0) return setStatus('Selecione um evento primeiro.', 'bad');
+      current().events.splice(state.selectedEvent, 1);
+      state.selectedEvent = -1;
+      validateAndRender('Evento excluído.');
+    };
+    document.getElementById('toggleKindBtn').onclick = () => {
+      if (state.selectedEvent < 0) return setStatus('Selecione um evento primeiro.', 'bad');
+      const ev = current().events[state.selectedEvent];
+      ev.kind = ev.kind === 'chord' ? 'rest' : 'chord';
+      validateAndRender('Tipo alternado.');
+    };
+    document.getElementById('moveLeftBtn').onclick = () => moveEvent(-1);
+    document.getElementById('moveRightBtn').onclick = () => moveEvent(1);
+    function moveEvent(dir){
+      const idx = state.selectedEvent;
+      if (idx < 0) return setStatus('Selecione um evento primeiro.', 'bad');
+      const next = idx + dir;
+      if (next < 0 || next >= current().events.length) return;
+      const arr = current().events;
+      [arr[idx], arr[next]] = [arr[next], arr[idx]];
+      state.selectedEvent = next;
+      validateAndRender('Evento movido.');
+    }
+
+    document.getElementById('copyBtn').onclick = async () => {
+      try { await navigator.clipboard.writeText(generatePluginCode()); setStatus('Código copiado para a área de transferência.', 'good'); }
+      catch { setStatus('Não consegui copiar automaticamente. Selecione o código e copie manualmente.', 'bad'); }
+    };
+    document.getElementById('downloadBtn').onclick = () => {
+      const code = generatePluginCode();
+      const blob = new Blob([code], { type: 'text/plain;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'GL - Groove Lab.qml';
+      document.body.appendChild(a);
+      a.click();
+      URL.revokeObjectURL(a.href);
+      a.remove();
+      setStatus('Plugin .qml gerado para download.', 'good');
+    };
+
+    function patternLiteral(events){
+      return '[\n' + events.map(ev => `            { kind: "${ev.kind}", z: ${ev.z}, n: ${ev.n} }`).join(',\n') + '\n        ]';
+    }
+
+    function grooveFunctions(){
+      return state.grooves.map((g, i) => {
+        return `    function ${safeFunctionName(g.name, i)}() {\n        generateGroove(${jsString(g.name)}, ${patternLiteral(g.events)});\n    }`;
+      }).join('\n\n');
+    }
+
+    function grooveButtons(){
+      return state.grooves.map((g, i) => {
+        return `            Button {\n                text: ${jsString(g.name)}\n                font.pixelSize: 9\n                font.bold: true\n                Layout.fillWidth: true\n                Layout.preferredHeight: 28\n                onClicked: ${safeFunctionName(g.name, i)}()\n            }`;
+      }).join('\n\n');
+    }
+
+    function generatePluginCode(){
+      return `import MuseScore 3.0
+import QtQuick 2.15
+import QtQuick.Controls 2.15
+import QtQuick.Layouts 1.15
+
+MuseScore {
+    menuPath: "Plugins.GL: Groove Lab"
+    description: "GL: Groove Lab. Cria acordes a partir da nota ou cifra selecionada e aplica levadas/viradas editadas no GL Maker. Desenvolvido pelo professor Glauber Santiago - UFSCar."
+    version: "3.0"
+    requiresScore: true
+    pluginType: "dialog"
+
+    width: 390
+    height: 780
+
+    property string statusText: "Selecione uma cabeça de nota, escolha sua função e clique em um acorde ou levada."
+    property int referenceDegreeIndex: 0
+    property bool autoVoicingEnabled: false
+    property int autoVoicingLowPitch: 55
+    property int autoVoicingHighPitch: 71
+
+    property var naturalPc: [0, 2, 4, 5, 7, 9, 11]
+    property var naturalTpc: [14, 16, 18, 13, 15, 17, 19]
+    property var degreeSteps: [0, 2, 4, 6]
+    property var degreeNames: ["fundamental", "terça", "quinta", "sétima"]
+
+    function isNote(e) { return e && e.type === Element.NOTE; }
+    function isChord(e) { return e && e.type === Element.CHORD; }
+    function mod(n, m) { return ((n % m) + m) % m; }
+    function normalizeAccidental(diff) { diff = mod(diff, 12); if (diff > 6) diff -= 12; return diff; }
+
+    function tpcInfo(tpc) {
+        for (var letter = 0; letter < 7; letter++) {
+            var delta = tpc - naturalTpc[letter];
+            if (delta % 7 === 0) return { letter: letter, accidental: delta / 7 };
+        }
+        return { letter: 0, accidental: 0 };
+    }
+
+    function pcFromTpc(tpc) {
+        var info = tpcInfo(tpc);
+        return mod(naturalPc[info.letter] + info.accidental, 12);
+    }
+
+    function tpcMatchesPitch(tpc, pitch) {
+        if (tpc === undefined || tpc === null) return false;
+        return pcFromTpc(tpc) === mod(pitch, 12);
+    }
+
+    function displayedTpc(note) {
+        if (note && note.tpc !== undefined && tpcMatchesPitch(note.tpc, note.pitch)) return note.tpc;
+        if (note && note.tpc1 !== undefined && tpcMatchesPitch(note.tpc1, note.pitch)) return note.tpc1;
+        if (note && note.tpc2 !== undefined && tpcMatchesPitch(note.tpc2, note.pitch)) return note.tpc2;
+        return spellPcAsLetter(note.pitch, 0);
+    }
+
+    function spellPcAsLetter(pc, letter) {
+        pc = mod(pc, 12);
+        letter = mod(letter, 7);
+        var accidental = normalizeAccidental(pc - naturalPc[letter]);
+        return naturalTpc[letter] + accidental * 7;
+    }
+
+    function forceNoteSpelling(note, tpc) {
+        note.tpc1 = tpc;
+        note.tpc2 = tpc;
+        if (note.tpc !== undefined) note.tpc = tpc;
+    }
+
+    function fitPitchToAutoVoicingRange(pitch) {
+        if (!autoVoicingEnabled) return pitch;
+        while (pitch < autoVoicingLowPitch) pitch += 12;
+        while (pitch > autoVoicingHighPitch) pitch -= 12;
+        return pitch;
+    }
+
+    function applyAutoVoicingToChord(chord) {
+        if (!autoVoicingEnabled || !chord) return 0;
+        var changed = 0;
+        for (var i = 0; i < chord.notes.length; i++) {
+            var note = chord.notes[i];
+            var originalPitch = note.pitch;
+            var originalTpc = displayedTpc(note);
+            var adjustedPitch = fitPitchToAutoVoicingRange(originalPitch);
+            if (adjustedPitch !== originalPitch) {
+                note.pitch = adjustedPitch;
+                forceNoteSpelling(note, originalTpc);
+                changed++;
+            }
+        }
+        return changed;
+    }
+
+    function makeNote(pitch, tpc) {
+        var note = newElement(Element.NOTE);
+        note.pitch = pitch;
+        forceNoteSpelling(note, tpc);
+        return note;
+    }
+
+    function chordHasPitch(chord, pitch) {
+        for (var i = 0; i < chord.notes.length; i++) if (chord.notes[i].pitch === pitch) return true;
+        return false;
+    }
+
+    function highestNote(chord) {
+        if (!chord || chord.notes.length === 0) return null;
+        var best = chord.notes[0];
+        for (var i = 1; i < chord.notes.length; i++) if (chord.notes[i].pitch > best.pitch) best = chord.notes[i];
+        return best;
+    }
+
+    function selectedReferenceNotes() {
+        var refs = [];
+        var elements = curScore.selection.elements;
+        for (var i = 0; i < elements.length; i++) {
+            var e = elements[i];
+            if (isNote(e)) refs.push(e);
+            else if (isChord(e)) {
+                var n = highestNote(e);
+                if (n) refs.push(n);
+            }
+        }
+        if (refs.length === 0) {
+            var cursor = curScore.newCursor();
+            cursor.rewind(1);
+            if (cursor.element) {
+                if (isNote(cursor.element)) refs.push(cursor.element);
+                else if (isChord(cursor.element)) {
+                    var fallback = highestNote(cursor.element);
+                    if (fallback) refs.push(fallback);
+                }
+            }
+        }
+        return refs;
+    }
+
+    function buildChord(label, intervals) {
+        if (!curScore) { statusText = "Nenhuma partitura aberta."; return; }
+        if (referenceDegreeIndex >= intervals.length) {
+            statusText = "Para " + label + ", a nota selecionada não pode ser a " + degreeNames[referenceDegreeIndex] + ".";
+            return;
+        }
+        var refs = selectedReferenceNotes();
+        if (refs.length === 0) { statusText = "Nenhuma nota selecionada. Selecione uma cabeça de nota."; return; }
+        curScore.startCmd();
+        var added = 0;
+        for (var r = 0; r < refs.length; r++) {
+            var refNote = refs[r];
+            var chord = refNote.parent;
+            if (!chord) continue;
+            var refTpc = displayedTpc(refNote);
+            var refInfo = tpcInfo(refTpc);
+            var rootPitch = refNote.pitch - intervals[referenceDegreeIndex];
+            var rootLetter = mod(refInfo.letter - degreeSteps[referenceDegreeIndex], 7);
+            for (var i = 0; i < intervals.length; i++) {
+                var rawTargetPitch = rootPitch + intervals[i];
+                var finalTargetPitch = fitPitchToAutoVoicingRange(rawTargetPitch);
+                if (chordHasPitch(chord, rawTargetPitch) || chordHasPitch(chord, finalTargetPitch)) continue;
+                var targetLetter = mod(rootLetter + degreeSteps[i], 7);
+                var targetTpc = spellPcAsLetter(rawTargetPitch, targetLetter);
+                var newNote = makeNote(finalTargetPitch, targetTpc);
+                chord.add(newNote);
+                forceNoteSpelling(newNote, targetTpc);
+                added++;
+            }
+            applyAutoVoicingToChord(chord);
+        }
+        curScore.endCmd();
+        statusText = added > 0 ? label + " criado/adaptado. Notas adicionadas: " + added + (autoVoicingEnabled ? ". Auto voicing: sol3-si4." : ".") : "Nada foi adicionado; as notas do acorde já existiam" + (autoVoicingEnabled ? ". Auto voicing aplicado: sol3-si4." : ".");
+    }
+
+    function noteSortAscending(a, b) { return a.pitch - b.pitch; }
+
+    function getSegmentHarmony(segment) {
+        if (!segment || !segment.annotations) return null;
+        var aCount = 0;
+        var annotation = segment.annotations[aCount];
+        while (annotation) {
+            if (annotation.type === Element.HARMONY) return annotation;
+            annotation = segment.annotations[++aCount];
+        }
+        return null;
+    }
+
+    function selectedHarmonyElement() {
+        var elements = curScore.selection.elements;
+        for (var i = 0; i < elements.length; i++) {
+            var e = elements[i];
+            if (e && e.type === Element.HARMONY) return e;
+            if (e && e.segment) {
+                var hFromElementSegment = getSegmentHarmony(e.segment);
+                if (hFromElementSegment) return hFromElementSegment;
+            }
+            if (e && e.parent && e.parent.segment) {
+                var hFromParentSegment = getSegmentHarmony(e.parent.segment);
+                if (hFromParentSegment) return hFromParentSegment;
+            }
+        }
+
+        var cursor = curScore.newCursor();
+        cursor.rewind(1);
+        if (cursor.segment) {
+            var hFromCursor = getSegmentHarmony(cursor.segment);
+            if (hFromCursor) return hFromCursor;
+        }
+
+        return null;
+    }
+
+    function textFromHarmony(harmony) {
+        if (!harmony) return "";
+        if (harmony.text !== undefined && harmony.text !== null) return "" + harmony.text;
+        if (harmony.plainText !== undefined && harmony.plainText !== null) return "" + harmony.plainText;
+        return "";
+    }
+
+    function pitchClassFromLetterName(name) {
+        var s = ("" + name).toUpperCase();
+        if (s === "C") return 0;
+        if (s === "D") return 2;
+        if (s === "E") return 4;
+        if (s === "F") return 5;
+        if (s === "G") return 7;
+        if (s === "A") return 9;
+        if (s === "B" || s === "H") return 11;
+        return 0;
+    }
+
+    function normalizeHarmonyText(text) {
+        return ("" + text).replace("♯", "#").replace("♭", "b").replace("Δ", "maj").replace("ø", "m7b5").replace("º", "dim").replace("°", "dim");
+    }
+
+    function parseRootFromHarmonyText(text) {
+        text = normalizeHarmonyText(text);
+        var i = 0;
+        while (i < text.length && text.charAt(i) === " ") i++;
+        if (i >= text.length) return null;
+        var letterName = text.charAt(i).toUpperCase();
+        if (letterName === "H") letterName = "B";
+        var letter = "CDEFGAB".indexOf(letterName);
+        if (letter < 0) return null;
+        i++;
+        var accidental = "";
+        if (i < text.length) {
+            var a = text.charAt(i);
+            if (a === "#" || a === "b" || a === "x") {
+                accidental = a;
+                i++;
+                if (i < text.length && text.charAt(i) === a && a !== "x") { accidental += a; i++; }
+            }
+        }
+        var pc = pitchClassFromLetterName(letterName);
+        if (accidental === "#") pc += 1;
+        else if (accidental === "##" || accidental === "x") pc += 2;
+        else if (accidental === "b") pc -= 1;
+        else if (accidental === "bb") pc -= 2;
+        return { pc: mod(pc, 12), letter: letter, suffix: text.substring(i) };
+    }
+
+    function stripParentheses(text) {
+        var out = "";
+        var depth = 0;
+        for (var i = 0; i < text.length; i++) {
+            var ch = text.charAt(i);
+            if (ch === "(") { depth++; continue; }
+            if (ch === ")") { if (depth > 0) depth--; continue; }
+            if (depth === 0) out += ch;
+        }
+        return out;
+    }
+
+    function intervalsFromHarmonySuffix(suffix) {
+        suffix = normalizeHarmonyText(suffix);
+        var slash = suffix.indexOf("/");
+        if (slash >= 0) suffix = suffix.substring(0, slash);
+        suffix = stripParentheses(suffix).split(" ").join("");
+        var lower = suffix.toLowerCase();
+        var isMinor = lower.indexOf("min") >= 0 || lower.indexOf("-") >= 0 || (lower.charAt(0) === "m" && lower.indexOf("maj") !== 0);
+        var isHalfDim = lower.indexOf("m7b5") >= 0 || lower.indexOf("0") >= 0;
+        var isDim = lower.indexOf("dim") >= 0 || lower.indexOf("o") >= 0;
+        var isAug = lower.indexOf("aug") >= 0 || lower.indexOf("+") >= 0;
+        var isSus2 = lower.indexOf("sus2") >= 0;
+        var isSus4 = lower.indexOf("sus") >= 0 && !isSus2;
+        var hasMaj7 = lower.indexOf("maj7") >= 0 || lower.indexOf("ma7") >= 0 || lower.indexOf("maj") >= 0;
+        var has7 = lower.indexOf("7") >= 0;
+        var has6 = lower.indexOf("6") >= 0;
+        var hasAdd9 = lower.indexOf("add9") >= 0 || lower.indexOf("9") >= 0;
+
+        var intervals;
+        if (isHalfDim) intervals = [0, 3, 6, 10];
+        else if (isDim && has7) intervals = [0, 3, 6, 9];
+        else if (isDim) intervals = [0, 3, 6];
+        else if (isSus2) intervals = [0, 2, 7];
+        else if (isSus4) intervals = [0, 5, 7];
+        else if (isAug) intervals = [0, 4, 8];
+        else if (isMinor) intervals = [0, 3, 7];
+        else intervals = [0, 4, 7];
+
+        if (hasMaj7 && intervals.indexOf(11) < 0) intervals.push(11);
+        else if (has7 && intervals.indexOf(10) < 0 && !isDim) intervals.push(10);
+        else if (has6 && intervals.indexOf(9) < 0) intervals.push(9);
+        if (hasAdd9 && intervals.indexOf(14) < 0) intervals.push(14);
+        return intervals;
+    }
+
+    function notesFromHarmony(harmony) {
+        var text = textFromHarmony(harmony);
+        var rootData = parseRootFromHarmonyText(text);
+        if (!rootData && harmony.rootTpc !== undefined) {
+            var info = tpcInfo(harmony.rootTpc);
+            rootData = { pc: pcFromTpc(harmony.rootTpc), letter: info.letter, suffix: text };
+        }
+        if (!rootData) return [];
+
+        var intervals = intervalsFromHarmonySuffix(rootData.suffix);
+        var rootPitch = 60 + rootData.pc;
+        if (rootPitch > 66) rootPitch -= 12;
+
+        var notes = [];
+        var degreeLetters = [0, 2, 4, 6, 1, 3, 5];
+        for (var i = 0; i < intervals.length; i++) {
+            var rawPitch = rootPitch + intervals[i];
+            var finalPitch = fitPitchToAutoVoicingRange(rawPitch);
+            var targetLetter = mod(rootData.letter + degreeLetters[i], 7);
+            var targetTpc = spellPcAsLetter(rawPitch, targetLetter);
+            notes.push({ pitch: finalPitch, tpc: targetTpc });
+        }
+        notes.sort(noteSortAscending);
+        return notes;
+    }
+
+    function selectedChordContext() {
+        var preferredHarmony = selectedHarmonyElement();
+        if (preferredHarmony) {
+            var preferredNotes = notesFromHarmony(preferredHarmony);
+            if (preferredNotes && preferredNotes.length > 0) {
+                var preferredTrack = 0;
+                if (preferredHarmony.track !== undefined) preferredTrack = preferredHarmony.track;
+                else if (preferredHarmony.staffIdx !== undefined) preferredTrack = preferredHarmony.staffIdx * 4;
+                var preferredStaffIdx = Math.floor(preferredTrack / 4);
+                var preferredVoice = preferredTrack % 4;
+                if (preferredHarmony.staffIdx !== undefined) preferredStaffIdx = preferredHarmony.staffIdx;
+                var preferredTick = -1;
+                if (preferredHarmony.tick !== undefined && preferredHarmony.tick >= 0) preferredTick = preferredHarmony.tick;
+                else if (preferredHarmony.parent && preferredHarmony.parent.tick !== undefined) preferredTick = preferredHarmony.parent.tick;
+                if (preferredTick < 0) {
+                    var phc = curScore.newCursor();
+                    phc.rewind(1);
+                    preferredTick = phc.tick;
+                    if (phc.track !== undefined) {
+                        preferredTrack = phc.track;
+                        preferredStaffIdx = Math.floor(preferredTrack / 4);
+                        preferredVoice = preferredTrack % 4;
+                    }
+                }
+                if (preferredTick >= 0) return { notes: preferredNotes, tick: preferredTick, track: preferredTrack, staffIdx: preferredStaffIdx, voice: preferredVoice, source: "cifra" };
+            }
+        }
+
+        var refs = selectedReferenceNotes();
+        if (refs.length > 0) {
+            var ref = refs[0];
+            var chord = ref.parent;
+            if (!chord || !chord.notes || chord.notes.length === 0) return null;
+            var result = [];
+            for (var i = 0; i < chord.notes.length; i++) {
+                var n = chord.notes[i];
+                result.push({ pitch: n.pitch, tpc: displayedTpc(n) });
+            }
+            result.sort(noteSortAscending);
+            var track = 0;
+            if (chord.track !== undefined) track = chord.track;
+            else if (ref.track !== undefined) track = ref.track;
+            else {
+                var staffFallback = chord.staffIdx !== undefined ? chord.staffIdx : 0;
+                var voiceFallback = chord.voice !== undefined ? chord.voice : 0;
+                track = staffFallback * 4 + voiceFallback;
+            }
+            var staffIdx = Math.floor(track / 4);
+            var voice = track % 4;
+            if (chord.staffIdx !== undefined) staffIdx = chord.staffIdx;
+            if (chord.voice !== undefined) voice = chord.voice;
+            var tick = -1;
+            if (chord.tick !== undefined && chord.tick >= 0) tick = chord.tick;
+            else if (chord.parent && chord.parent.tick !== undefined) tick = chord.parent.tick;
+            else if (ref.tick !== undefined && ref.tick >= 0) tick = ref.tick;
+            if (tick < 0) {
+                var c = curScore.newCursor();
+                c.rewind(1);
+                tick = c.tick;
+                if (c.track !== undefined) {
+                    track = c.track;
+                    staffIdx = Math.floor(track / 4);
+                    voice = track % 4;
+                }
+            }
+            if (tick < 0) return null;
+            return { notes: result, tick: tick, track: track, staffIdx: staffIdx, voice: voice, source: "nota/acorde" };
+        }
+
+    }
+
+    function setupCursorAt(cursor, ctx, tick) {
+        if (cursor.staffIdx !== undefined) cursor.staffIdx = ctx.staffIdx;
+        if (cursor.voice !== undefined) cursor.voice = ctx.voice;
+        cursor.track = ctx.track;
+        cursor.rewindToTick(tick);
+        if (cursor.staffIdx !== undefined) cursor.staffIdx = ctx.staffIdx;
+        if (cursor.voice !== undefined) cursor.voice = ctx.voice;
+        cursor.track = ctx.track;
+    }
+
+    function prepareGrooveCursor(ctx) {
+        var cursor = curScore.newCursor();
+        setupCursorAt(cursor, ctx, ctx.tick);
+        return cursor;
+    }
+
+    function forceChordSpellingAt(ctx, tick, notes) {
+        var cursor = curScore.newCursor();
+        setupCursorAt(cursor, ctx, tick);
+        if (!cursor.element || cursor.element.type !== Element.CHORD) return;
+        var chord = cursor.element;
+        if (!chord.notes) return;
+        var used = [];
+        for (var i = 0; i < notes.length; i++) used.push(false);
+        for (var c = 0; c < chord.notes.length; c++) {
+            var cn = chord.notes[c];
+            var match = -1;
+            for (var j = 0; j < notes.length; j++) {
+                if (!used[j] && notes[j].pitch === cn.pitch) { match = j; break; }
+            }
+            if (match < 0 && c < notes.length) match = c;
+            if (match >= 0 && match < notes.length) {
+                forceNoteSpelling(cn, notes[match].tpc);
+                used[match] = true;
+            }
+        }
+    }
+
+    function insertChordAtCursor(cursor, ctx, notes, z, n) {
+        if (!notes || notes.length === 0) return false;
+        var startTick = cursor.tick;
+        cursor.setDuration(z, n);
+        cursor.addNote(notes[0].pitch, false);
+        for (var i = 1; i < notes.length; i++) {
+            setupCursorAt(cursor, ctx, startTick);
+            cursor.setDuration(z, n);
+            cursor.addNote(notes[i].pitch, true);
+        }
+        forceChordSpellingAt(ctx, startTick, notes);
+        setupCursorAt(cursor, ctx, startTick);
+        cursor.next();
+        return true;
+    }
+
+    function insertRestAtCursor(cursor, ctx, z, n) {
+        cursor.setDuration(z, n);
+        cursor.addRest();
+    }
+
+    function generateGroove(label, pattern) {
+        if (!curScore) { statusText = "Nenhuma partitura aberta."; return; }
+        var ctx = selectedChordContext();
+        if (!ctx || !ctx.notes || ctx.notes.length === 0) {
+            statusText = "Selecione uma nota do acorde já gerado para aplicar a levada.";
+            return;
+        }
+        var cursor = prepareGrooveCursor(ctx);
+        if (!cursor) { statusText = "Não consegui criar o cursor da levada."; return; }
+        curScore.startCmd();
+        var chordsInserted = 0;
+        var restsInserted = 0;
+        for (var i = 0; i < pattern.length; i++) {
+            var ev = pattern[i];
+            if (ev.kind === "rest") { insertRestAtCursor(cursor, ctx, ev.z, ev.n); restsInserted++; }
+            else { insertChordAtCursor(cursor, ctx, ctx.notes, ev.z, ev.n); chordsInserted++; }
+        }
+        curScore.endCmd();
+        statusText = label + ": " + chordsInserted + " acordes, " + restsInserted + " pausas. Início: nota/acorde selecionado.";
+    }
+
+${grooveFunctions()}
+
+    Rectangle {
+        anchors.fill: parent
+        color: "#ECECEC"
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 8
+            spacing: 5
+
+            Label { text: "GL: Groove Lab"; font.bold: true; font.pixelSize: 12; Layout.alignment: Qt.AlignHCenter }
+            Label { text: "Desenvolvido pelo professor Glauber Santiago - UFSCar"; wrapMode: Text.WordWrap; horizontalAlignment: Text.AlignHCenter; font.pixelSize: 8; color: "#666"; Layout.fillWidth: true; Layout.alignment: Qt.AlignHCenter }
+            Label { text: "A nota selecionada é:"; font.bold: true; Layout.fillWidth: true }
+
+            GridLayout {
+                columns: 2
+                Layout.fillWidth: true
+                columnSpacing: 5
+                rowSpacing: 5
+                Button { text: "Fundamental"; checkable: true; checked: referenceDegreeIndex === 0; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; Layout.preferredHeight: 29; onClicked: referenceDegreeIndex = 0 }
+                Button { text: "Terça"; checkable: true; checked: referenceDegreeIndex === 1; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; Layout.preferredHeight: 29; onClicked: referenceDegreeIndex = 1 }
+                Button { text: "Quinta"; checkable: true; checked: referenceDegreeIndex === 2; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; Layout.preferredHeight: 29; onClicked: referenceDegreeIndex = 2 }
+                Button { text: "Sétima"; checkable: true; checked: referenceDegreeIndex === 3; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; Layout.preferredHeight: 29; onClicked: referenceDegreeIndex = 3 }
+            }
+
+            Rectangle { height: 1; color: "#D0D0D0"; Layout.fillWidth: true }
+            Button { text: autoVoicingEnabled ? "Auto voicing ON (G3-B4)" : "Auto voicing OFF"; checkable: true; checked: autoVoicingEnabled; font.pixelSize: 9; font.bold: true; Layout.fillWidth: true; Layout.preferredHeight: 30; onClicked: autoVoicingEnabled = checked }
+            Label { text: "Move por oitavas para caber em G3-B4."; wrapMode: Text.WordWrap; font.pixelSize: 9; color: "#666"; Layout.fillWidth: true }
+            Rectangle { height: 1; color: "#D0D0D0"; Layout.fillWidth: true }
+
+            Button { text: "X"; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; Layout.preferredHeight: 29; onClicked: buildChord("X", [0, 4, 7]) }
+            Button { text: "Xm"; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; Layout.preferredHeight: 29; onClicked: buildChord("Xm", [0, 3, 7]) }
+            Button { text: "Xmaj7"; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; Layout.preferredHeight: 29; onClicked: buildChord("Xmaj7", [0, 4, 7, 11]) }
+            Button { text: "X7"; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; Layout.preferredHeight: 29; onClicked: buildChord("X7", [0, 4, 7, 10]) }
+            Button { text: "Xm7"; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; Layout.preferredHeight: 29; onClicked: buildChord("Xm7", [0, 3, 7, 10]) }
+            Button { text: "Xm7(b5)"; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; Layout.preferredHeight: 29; onClicked: buildChord("Xm7(b5)", [0, 3, 6, 10]) }
+            Button { text: "Xdim7"; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; Layout.preferredHeight: 29; onClicked: buildChord("Xdim7", [0, 3, 6, 9]) }
+
+            Rectangle { height: 1; color: "#D0D0D0"; Layout.fillWidth: true }
+            Label { text: "Levadas e Viradas"; font.bold: true; Layout.fillWidth: true }
+
+${grooveButtons()}
+
+            Item { Layout.fillHeight: true }
+            Label { text: statusText; wrapMode: Text.WordWrap; horizontalAlignment: Text.AlignHCenter; font.pixelSize: 9; color: "#555"; Layout.fillWidth: true; Layout.alignment: Qt.AlignHCenter }
+        }
+    }
+}
+`;
+    }
+
+    renderAll();
+  </script>
+</body>
+</html>
