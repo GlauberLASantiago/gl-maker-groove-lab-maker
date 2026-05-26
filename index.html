@@ -161,6 +161,48 @@
     .card { background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.07); border-radius: 16px; padding: 14px; }
     .card h2 { margin: 0 0 10px; font-size: 18px; }
 
+    /* Painel de Instruções */
+    .instructions-panel {
+      margin-top: 20px;
+      padding: 18px;
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      font-size: 13px;
+      line-height: 1.6;
+      color: #e0e6ed;
+    }
+    .instructions-panel h3 {
+      font-size: 15px;
+      color: var(--accent2);
+      margin-top: 18px;
+      margin-bottom: 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 4px;
+    }
+    .instructions-panel h3:first-of-type {
+      margin-top: 0;
+    }
+    .instructions-panel ol, .instructions-panel ul {
+      margin: 0;
+      padding-left: 20px;
+    }
+    .instructions-panel li {
+      margin-bottom: 8px;
+    }
+    .instructions-panel code {
+      background: rgba(116, 167, 255, 0.15);
+      color: #a5c8ff;
+      padding: 2px 5px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 12px;
+    }
+    .instructions-panel ul {
+      margin-top: 4px;
+      list-style-type: square;
+    }
+
     .timeline-wrap { overflow: visible; }
     .timeline {
       width: 100%;
@@ -511,6 +553,48 @@
             <input type="checkbox" id="metroCheckbox" class="metro-checkbox" checked />
             <span>Metrônomo</span>
           </label>
+        </div>
+
+        <!-- Painel de Instruções -->
+        <div class="instructions-panel">
+          <h3>Como Usar o Aplicativo (GL Maker)</h3>
+          <ol>
+            <li><strong>Gerenciar Levadas:</strong> Na barra lateral esquerda, clique em qualquer levada para selecioná-la. Você pode reordená-las clicando e arrastando com o mouse. Use os botões <strong>Nova levada</strong>, <strong>Duplicar</strong> ou <strong>Excluir</strong> conforme necessário.</li>
+            <li><strong>Configurar Compassos e Fórmulas:</strong> No painel superior, defina a quantidade de compassos (1 ou 2) e a fórmula de compasso (ex: 2/4, 3/4, 4/4, 6/8, 9/8, 12/8).</li>
+            <li><strong>Editar Rítmica (Linha do Tempo):</strong> Clique e arraste na timeline para desenhar ou esticar notas. Um clique rápido em uma nota selecionada a transforma em pausa e vice-versa. Clique duplo apaga a nota.</li>
+            <li><strong>Visualizar e Testar:</strong> Use o player acima para reproduzir a rítmica criada (com sonoridade do acorde de C7) e ajuste o andamento (BPM) ou ative/desative o metrônomo.</li>
+          </ol>
+
+          <h3>Como Exportar e Instalar o Plugin no MuseScore</h3>
+          <ol>
+            <li><strong>Baixar o arquivo:</strong> No painel de exportação (abaixo da lista de levadas), clique no botão <strong>Baixar plugin .qml</strong>. O navegador baixará o arquivo <code>GL - Groove Lab.qml</code>.</li>
+            <li><strong>Instalar no MuseScore:</strong> Copie o arquivo baixado para a pasta de plugins do seu MuseScore. Normalmente o caminho é:
+              <ul>
+                <li><strong>Windows:</strong> <code>Documentos/MuseScore3/Plugins</code> (ou <code>MuseScore4/Plugins</code>)</li>
+                <li><strong>macOS:</strong> <code>~/Library/Application Support/MuseScore/MuseScore3/Plugins</code></li>
+              </ul>
+            </li>
+            <li><strong>Ativar o Plugin:</strong> Abra o MuseScore, vá em <strong>Plugins > Gerenciador de Plugins</strong>, marque a caixa de seleção ao lado de <strong>GL: Groove Lab</strong> e clique em <strong>OK</strong>. O plugin aparecerá no menu <strong>Plugins > GL: Groove Lab</strong>.</li>
+          </ol>
+
+          <h3>Como Usar o Plugin no MuseScore</h3>
+          <ul>
+            <li><strong>Criar Acordes Rapidamente:</strong>
+              <ol>
+                <li>Escreva ou selecione uma cabeça de nota na pauta do MuseScore.</li>
+                <li>No menu do plugin, defina qual é a função dessa nota (Fundamental, Terça, Quinta ou Sétima).</li>
+                <li>Clique no acorde desejado (ex: <code>X</code>, <code>Xm</code>, <code>X7</code>, <code>Xmaj7</code>) para que as outras vozes do acorde sejam inseridas automaticamente de forma correta.</li>
+              </ol>
+            </li>
+            <li><strong>Aplicar Levadas Rítmicas:</strong>
+              <ol>
+                <li>Selecione qualquer nota de um acorde já existente no MuseScore.</li>
+                <li>Clique na levada desejada no menu do plugin. O plugin irá repetir o acorde seguindo a rítmica configurada no GL Maker.</li>
+                <li>Ative a opção <strong>Auto voicing</strong> se quiser manter a harmonia automaticamente restrita à região central (G3 a B4).</li>
+              </ol>
+            </li>
+            <li><strong>Aplicar via Cifras:</strong> Você também pode selecionar um texto de cifra (ex: <code>C7</code>, <code>Dm7</code>) na pauta e clicar em uma levada para que o plugin crie a sonorização correspondente.</li>
+          </ul>
         </div>
       </div>
     </section>
