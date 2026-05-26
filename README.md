@@ -4,7 +4,9 @@ Editor visual em HTML para criar, editar e exportar levadas musicais para um plu
 
 O app gera automaticamente o plugin **GL: Groove Lab**, que permite criar acordes e aplicar levadas/viradas diretamente em partituras do MuseScore.
 
-<img width="1226" height="915" alt="image" src="https://github.com/user-attachments/assets/9f83be9f-8ece-42f8-b376-e43635c4e950" />
+<img width="1239" height="760" alt="image" src="https://github.com/user-attachments/assets/5308cb68-6a4f-4842-8fcb-225726e63ffb" />
+
+<img width="1261" height="607" alt="image" src="https://github.com/user-attachments/assets/bc612225-311c-471e-bbd6-077c8cc5a93f" />
 
 
 ## Visão geral
