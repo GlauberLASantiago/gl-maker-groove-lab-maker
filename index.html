@@ -5,6 +5,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>GL Maker: Groove Lab Maker</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Music&display=swap" rel="stylesheet">
   <style>
     :root {
       --bg: #101114;
@@ -119,13 +120,26 @@
       border-radius: 14px;
       background: var(--panel2);
       border: 1px solid transparent;
-      cursor: pointer;
+      cursor: grab;
       display: flex;
       justify-content: space-between;
       gap: 8px;
       align-items: center;
+      transition: background 0.2s, border-color 0.2s, transform 0.1s, opacity 0.2s;
     }
+    .groove-item * { pointer-events: none; }
+    .groove-item:active { cursor: grabbing; }
     .groove-item.active { border-color: var(--accent); background: rgba(119,215,168,.12); }
+    .groove-item.dragging {
+      opacity: 0.4;
+      border: 1px dashed var(--accent2);
+      transform: scale(0.98);
+    }
+    .groove-item.drag-over {
+      border: 1px dashed var(--accent2);
+      background: rgba(116, 167, 255, 0.08);
+      transform: scale(1.02);
+    }
     .groove-meta { color: var(--muted); font-size: 12px; margin-top: 2px; }
 
     .status {
@@ -141,18 +155,15 @@
     .status.good { background: rgba(119,215,168,.1); border-color: rgba(119,215,168,.22); color: #dcffed; }
 
     .topbar {
-      display: grid;
-      grid-template-columns: 1.15fr .85fr;
-      gap: 14px;
       margin-bottom: 14px;
     }
 
     .card { background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.07); border-radius: 16px; padding: 14px; }
     .card h2 { margin: 0 0 10px; font-size: 18px; }
 
-    .timeline-wrap { overflow-x: auto; padding-bottom: 8px; }
+    .timeline-wrap { overflow: visible; }
     .timeline {
-      min-width: 680px;
+      width: 100%;
       border: 1px solid var(--line);
       border-radius: 16px;
       overflow: hidden;
@@ -160,7 +171,7 @@
     }
     .bar-labels, .grid, .events { display: grid; }
     .bar-labels {
-      grid-template-columns: repeat(var(--steps), minmax(26px, 1fr));
+      grid-template-columns: repeat(var(--steps), minmax(0, 1fr));
       background: #171a20;
       border-bottom: 1px solid var(--line);
     }
@@ -175,26 +186,59 @@
     }
     .tick-label.strong { color: var(--text); font-weight: 800; background: rgba(255,255,255,.035); }
     .events {
-      grid-template-columns: repeat(var(--steps), minmax(26px, 1fr));
-      min-height: 110px;
+      grid-template-columns: repeat(var(--steps), minmax(0, 1fr));
+      min-height: 90px;
       position: relative;
-      background:
-        repeating-linear-gradient(to right, rgba(255,255,255,.065) 0 1px, transparent 1px calc(100% / var(--steps)));
+      background: transparent;
+    }
+    .grid-bg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: grid;
+      grid-template-columns: repeat(var(--steps), minmax(0, 1fr));
+      pointer-events: none;
+      z-index: 1;
+    }
+    .bg-cell {
+      border-right: 1px solid rgba(255,255,255,.055);
+      height: 100%;
     }
     .event {
-      margin: 16px 3px;
-      border-radius: 12px;
-      padding: 10px 8px;
+      position: relative;
+      z-index: 2;
+      margin: 10px 1px;
+      border-radius: 8px;
+      padding: 4px 2px;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      min-height: 72px;
+      min-height: 56px;
       color: white;
-      cursor: pointer;
+      cursor: grab;
       border: 1px solid rgba(255,255,255,.16);
       user-select: none;
       overflow: hidden;
+      text-align: center;
+    }
+    .resize-handle {
+      position: absolute;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      width: 10px;
+      cursor: ew-resize;
+      background: rgba(255, 255, 255, 0.08);
+      border-top-right-radius: 12px;
+      border-bottom-right-radius: 12px;
+      transition: background 0.15s;
+      z-index: 10;
+    }
+    .resize-handle:hover {
+      background: rgba(255, 255, 255, 0.25);
     }
     .event.chord { background: linear-gradient(180deg, rgba(119,215,168,.82), rgba(47,115,85,.92)); color: #04100a; font-weight: 900; }
     .event.rest { background: linear-gradient(180deg, #515868, var(--rest)); color: #f3f5fa; }
@@ -240,6 +284,129 @@
       .sidebar { position: static; }
       .topbar, .editor-grid { grid-template-columns: 1fr; }
     }
+
+    /* Noto Music Font Utility */
+    .noto-music {
+      font-family: 'Noto Music', serif;
+    }
+
+    /* Red Playback Cursor */
+    .playback-cursor {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background: #ff4757;
+      box-shadow: 0 0 10px #ff4757;
+      pointer-events: none;
+      transition: left 0.05s linear;
+      z-index: 100;
+      display: none;
+    }
+
+    /* Player Controls */
+    .player-panel {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 16px;
+      padding: 12px;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px;
+      margin-bottom: 12px;
+    }
+    .player-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      border: none;
+      font-size: 16px;
+      transition: all 0.2s ease;
+      color: #07140e;
+      background: linear-gradient(180deg, #83e9b5, #53b983);
+      box-shadow: 0 4px 12px rgba(119,215,168,0.25);
+    }
+    .player-btn:hover {
+      transform: scale(1.08);
+      box-shadow: 0 6px 16px rgba(119,215,168,0.35);
+    }
+    .player-btn.playing {
+      background: linear-gradient(180deg, #ff8a95, #ff4757);
+      color: white;
+      box-shadow: 0 4px 12px rgba(255,71,87,0.25);
+    }
+    .player-btn.playing:hover {
+      box-shadow: 0 6px 16px rgba(255,71,87,0.35);
+    }
+    .bpm-control {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-grow: 1;
+      min-width: 180px;
+    }
+    .bpm-slider {
+      flex-grow: 1;
+      height: 6px;
+      background: var(--line);
+      border-radius: 4px;
+      outline: none;
+      accent-color: var(--accent2);
+    }
+    .bpm-display {
+      font-family: monospace;
+      font-size: 14px;
+      font-weight: bold;
+      color: var(--accent2);
+      min-width: 64px;
+      text-align: right;
+    }
+    .metro-control {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      user-select: none;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .metro-checkbox {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    /* MuseScore-style carets and toggles */
+    .btn-toggle {
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 13px;
+      background: var(--panel2);
+      color: var(--text);
+      padding: 10px 12px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: transform .08s ease, background .15s ease, border-color .15s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-toggle:hover {
+      background: #2a2e38;
+      border-color: rgba(255,255,255,.18);
+    }
+    .btn-toggle.active {
+      background: linear-gradient(180deg, #8db9ff, #5b8ee6);
+      color: #061225;
+      font-weight: 800;
+      border-color: #5b8ee6;
+      box-shadow: 0 4px 12px rgba(116,167,255,0.25);
+    }
   </style>
 </head>
 <body>
@@ -277,6 +444,7 @@
 
     <section class="panel main">
       <div class="topbar">
+        <!-- Card 1: Configuração da levada -->
         <div class="card">
           <h2>Configuração da levada</h2>
           <div class="row">
@@ -291,36 +459,24 @@
                 <option value="2">2 compassos</option>
               </select>
             </div>
+            <div class="field">
+              <label>Fórmula de Compasso</label>
+              <select id="timeSigSelect">
+                <option value="4/4">4/4</option>
+                <option value="2/4">2/4</option>
+                <option value="3/4">3/4</option>
+                <option value="6/8">6/8</option>
+                <option value="9/8">9/8</option>
+                <option value="12/8">12/8</option>
+              </select>
+            </div>
           </div>
-          <div class="hint" id="durationHint"></div>
           <div class="meter"><span id="durationMeter"></span></div>
         </div>
 
-        <div class="card">
-          <h2>Adicionar evento</h2>
-          <div class="row">
-            <div class="field">
-              <label>Tipo</label>
-              <select id="kindInput">
-                <option value="chord">Acorde</option>
-                <option value="rest">Pausa</option>
-              </select>
-            </div>
-            <div class="field">
-              <label>Duração</label>
-              <select id="durationInput">
-                <option value="1/16">Semicolcheia 1/16</option>
-                <option value="1/8">Colcheia 1/8</option>
-                <option value="1/4">Semínima 1/4</option>
-                <option value="1/2">Mínima 1/2</option>
-                <option value="1/1">Semibreve 1/1</option>
-              </select>
-            </div>
-          </div>
-          <button class="btn primary full" id="addEventBtn">Adicionar no fim</button>
-        </div>
       </div>
 
+      <!-- Card 3: Linha do tempo -->
       <div class="card">
         <h2>Linha do tempo</h2>
         <div class="timeline-wrap">
@@ -329,23 +485,32 @@
         <div class="toolbar">
           <button class="btn small" id="moveLeftBtn">← Mover</button>
           <button class="btn small" id="moveRightBtn">Mover →</button>
-          <button class="btn small" id="toggleKindBtn">Acorde/Pausa</button>
-          <button class="btn small danger" id="deleteEventBtn">Excluir evento</button>
+          <button class="btn small" id="toggleKindBtn">Inverter Acorde/Pausa</button>
+          <button class="btn small danger" id="deleteEventBtn">Excluir selecionado</button>
         </div>
       </div>
 
-      <div class="editor-grid">
-        <div class="card">
-          <h2>Eventos</h2>
-          <table class="event-table">
-            <thead><tr><th>#</th><th>Tipo</th><th>Duração</th><th>Ações</th></tr></thead>
-            <tbody id="eventRows"></tbody>
-          </table>
-        </div>
-        <div class="card">
-          <h2>Código gerado</h2>
-          <p class="hint">Este preview atualiza automaticamente. O arquivo baixado já contém acordes, levadas, viradas e interface QML completa.</p>
-          <pre id="codePreview"></pre>
+      <!-- Card 4: Player de Áudio (Acorde C7) -->
+      <div class="card">
+        <h2>Player de Áudio (Acorde C7)</h2>
+        <p class="hint" style="margin-top: -6px; margin-bottom: 12px; font-size: 11px;">
+          Selecione uma nota/bloco no timeline. Clique único na nota selecionada inverte (acorde ⇄ pausa). Clique duplo deleta a nota.
+        </p>
+        
+        <!-- Player Controls -->
+        <div class="player-panel">
+          <button class="player-btn" id="playBtn" title="Tocar / Parar">▶</button>
+          
+          <div class="bpm-control">
+            <span class="hint">BPM:</span>
+            <input type="range" id="bpmSlider" class="bpm-slider" min="40" max="220" value="100" />
+            <span class="bpm-display" id="bpmDisplay">100 BPM</span>
+          </div>
+          
+          <label class="metro-control">
+            <input type="checkbox" id="metroCheckbox" class="metro-checkbox" checked />
+            <span>Metrônomo</span>
+          </label>
         </div>
       </div>
     </section>
@@ -360,32 +525,359 @@
       selectedGroove: 0,
       selectedEvent: -1,
       grooves: [
-        { name: "Rock 1", bars: 1, events: [chord(1,2), rest(1,8), chord(1,8), rest(1,4)] },
-        { name: "Rock 2", bars: 1, events: [rest(1,4), chord(1,8), chord(1,8), rest(1,4), chord(1,4)] },
-        { name: "Contratempo", bars: 1, events: [rest(1,8), chord(1,8), rest(1,8), chord(1,8), rest(1,8), chord(1,8), rest(1,8), chord(1,8)] },
-        { name: "Colcheias", bars: 1, events: [chord(1,8), chord(1,8), chord(1,8), chord(1,8), chord(1,8), chord(1,8), chord(1,8), chord(1,8)] },
         { name: "Bossa 4/4 1", bars: 2, events: [chord(1,4), chord(1,4), rest(1,8), chord(1,4), chord(1,8), rest(1,8), chord(1,4), chord(1,8), chord(1,4), chord(1,4)] },
         { name: "Bossa 4/4 2", bars: 2, events: [rest(1,4), chord(1,4), rest(1,8), chord(1,4), chord(1,8), rest(1,8), chord(1,4), chord(1,8), chord(1,2)] },
         { name: "Bossa 2/4 1", bars: 1, events: [chord(1,8), chord(1,8), rest(1,16), chord(1,8), chord(1,16), rest(1,16), chord(1,8), chord(1,16), chord(1,8), chord(1,8)] },
         { name: "Bossa 2/4 2", bars: 1, events: [rest(1,8), chord(1,8), rest(1,16), chord(1,8), chord(1,16), rest(1,16), chord(1,8), chord(1,16), rest(1,8), chord(1,8)] },
-        { name: "Bossa 2/4 3", bars: 1, events: [rest(1,8), chord(1,8), chord(1,16), chord(1,8), chord(1,16), rest(1,8), rest(1,16), chord(1,16)] },
-        { name: "Swing 1", bars: 1, events: [rest(1,8), chord(1,8), rest(1,8), chord(1,8), rest(1,8), rest(1,8), rest(1,8), chord(1,8)] },
-        { name: "Swing 2", bars: 1, events: [chord(1,2), rest(1,8), chord(1,8)] },
-        { name: "Swing 3", bars: 1, events: [chord(1,8), rest(1,8), rest(1,8), chord(1,8)] },
+        { name: "Bossa 2/4 3", bars: 1, events: [rest(1,8), chord(1,8), chord(1,16), chord(1,8), chord(1,16), rest(1,8), rest(1,16), chord(1,16), rest(1,4)] },
+        { name: "Swing 1", bars: 1, events: [rest(1,8), chord(1,8), rest(1,8), chord(1,8), rest(1,4), rest(1,8), chord(1,8)] },
+        { name: "Swing 2", bars: 1, events: [chord(1,2), rest(1,8), chord(1,8), rest(1,4)] },
+        { name: "Swing 3", bars: 1, events: [chord(1,8), rest(1,4), chord(1,8), rest(1,2)] },
         { name: "Swing 4", bars: 1, events: [chord(1,4), chord(1,4), chord(1,8), chord(1,8), rest(1,8), chord(1,8)] },
-        { name: "Swing 5", bars: 1, events: [rest(1,4), rest(1,8), chord(1,8)] },
+        { name: "Swing 5", bars: 1, events: [rest(1,4), rest(1,8), chord(1,8), rest(1,2)] },
+        { name: "Rock 1", bars: 1, events: [chord(1,2), rest(1,8), chord(1,8), rest(1,4)] },
+        { name: "Rock 2", bars: 1, events: [rest(1,4), chord(1,8), chord(1,8), rest(1,4), chord(1,4)] },
+        { name: "Contratempo", bars: 1, events: [rest(1,8), chord(1,8), rest(1,8), chord(1,8), rest(1,8), chord(1,8), rest(1,8), chord(1,8)] },
+        { name: "Colcheias", bars: 1, events: [chord(1,8), chord(1,8), chord(1,8), chord(1,8), chord(1,8), chord(1,8), chord(1,8), chord(1,8)] },
+        { name: "Mínima", bars: 1, events: [chord(1,2), rest(1,2)] },
         { name: "Semibreve", bars: 1, events: [chord(1,1)] },
-        { name: "Mínima", bars: 1, events: [chord(1,2)] }
+        { name: "Levada em 3/4", bars: 1, events: [chord(3,8), chord(3,8)] },
+        { name: "Levada em 6/8", bars: 1, events: [chord(1,8), chord(1,8), chord(1,8), chord(1,8), chord(1,8), chord(1,8)] },
+        { name: "Levada em 9/8", bars: 1, events: [chord(1,8), chord(1,16), chord(1,16), chord(1,8), chord(1,8), rest(1,8), chord(1,8), chord(1,8), chord(1,8), chord(1,8)] },
+        { name: "Levada em 12/8", bars: 1, events: [chord(1,8), rest(1,8), chord(1,8), chord(1,8), rest(1,8), chord(1,8)] }
       ]
     };
+
+    state.grooves.forEach(g => {
+      if (g.name.includes("2/4")) g.timeSig = "2/4";
+      else if (g.name.includes("3/4")) g.timeSig = "3/4";
+      else if (g.name.includes("6/8")) g.timeSig = "6/8";
+      else if (g.name.includes("9/8")) g.timeSig = "9/8";
+      else if (g.name.includes("12/8")) g.timeSig = "12/8";
+      else g.timeSig = "4/4";
+    });
 
     function chord(z,n){ return {kind:"chord", z, n}; }
     function rest(z,n){ return {kind:"rest", z, n}; }
     function current(){ return state.grooves[state.selectedGroove]; }
+    function getUnitsPerBar(timeSig = current().timeSig || "4/4") {
+      const isCompound = timeSig.endsWith("/8");
+      const num = Number(timeSig.split('/')[0]);
+      const beatsPerBar = isCompound ? num / 3 : num;
+      const beatSize = isCompound ? 6 : 4;
+      return beatsPerBar * beatSize;
+    }
     function totalUnits(g = current()){ return g.events.reduce((sum, ev) => sum + (16 * ev.z / ev.n), 0); }
-    function targetUnits(g = current()){ return g.bars * 16; }
+    function targetUnits(g = current()){ 
+      const timeSig = g.timeSig || "4/4";
+      const unitsPerBar = getUnitsPerBar(timeSig);
+      return g.bars * unitsPerBar; 
+    }
     function durationText(ev){ return `${ev.z}/${ev.n}`; }
     function parseDuration(value){ const [z,n] = value.split('/').map(Number); return {z,n}; }
+
+    function isStandardDuration(len) {
+      return [1, 2, 3, 4, 6, 8, 12, 16].includes(len);
+    }
+
+    function decomposeLogicalNote(start, span, timeSig) {
+      const end = start + span;
+      const B = getUnitsPerBar(timeSig); // total steps in a bar (e.g. 16 for 4/4)
+
+      function split(s, e) {
+        const len = e - s;
+        if (len <= 0) return [];
+
+        // If it spans the entire bar and starts at 0, keep it as a single full-measure note
+        if (s === 0 && len === B && isStandardDuration(len)) {
+          return [{ start: s, span: len }];
+        }
+
+        if (isStandardDuration(len)) {
+          let cross = false;
+
+          // Critical boundary: half measure (step 8 in 4/4, step 6 in 6/8, step 4 in 2/4, step 12 in 12/8)
+          const majorBound = (timeSig === "4/4") ? 8 : 
+                             ((timeSig === "6/8") ? 6 : 
+                             ((timeSig === "2/4") ? 4 : 
+                             ((timeSig === "12/8") ? 12 : -1)));
+          if (majorBound > 0 && s < majorBound && e > majorBound) {
+            cross = true;
+          }
+
+          // If sixteenth notes are involved, do not cross any beat boundary
+          const isSixteenthInvolved = (s % 2 !== 0 || e % 2 !== 0);
+          if (isSixteenthInvolved) {
+            const beatSize = timeSig.endsWith("/8") ? 6 : 4;
+            for (let b = beatSize; b < B; b += beatSize) {
+              if (s < b && e > b) {
+                cross = true;
+              }
+            }
+          }
+
+          // If eighth notes are involved, check syncopation crossing beat boundaries
+          if (timeSig === "4/4" && s % 4 !== 0) {
+            const nextBeat = Math.ceil(s / 4) * 4;
+            if (e > nextBeat && e !== 8 && e !== 12 && e !== 16) {
+              cross = true;
+            }
+          }
+
+          if (!cross) {
+            return [{ start: s, span: len }];
+          }
+        }
+
+        let splitPoint = -1;
+
+        // Try splitting at major bound
+        const majorBound = (timeSig === "4/4") ? 8 : 
+                           ((timeSig === "6/8") ? 6 : 
+                           ((timeSig === "2/4") ? 4 : 
+                           ((timeSig === "12/8") ? 12 : -1)));
+        if (majorBound > 0 && s < majorBound && e > majorBound) {
+          splitPoint = majorBound;
+        }
+
+        // Try splitting at beat boundaries
+        if (splitPoint === -1) {
+          const beatSize = timeSig.endsWith("/8") ? 6 : 4;
+          for (let b = beatSize; b < B; b += beatSize) {
+            if (s < b && e > b) {
+              splitPoint = b;
+              break;
+            }
+          }
+        }
+
+        // Fallback to splitting by largest standard note duration
+        if (splitPoint === -1) {
+          const standardLengths = [16, 12, 8, 6, 4, 3, 2, 1];
+          for (const l of standardLengths) {
+            if (s + l < e) {
+              splitPoint = s + l;
+              break;
+            }
+          }
+        }
+
+        if (splitPoint !== -1) {
+          return [...split(s, splitPoint), ...split(splitPoint, e)];
+        }
+
+        return [{ start: s, span: len }];
+      }
+
+      const pieces = split(start, end);
+      for (let i = 0; i < pieces.length - 1; i++) {
+        pieces[i].tiedToNext = true;
+      }
+      return pieces;
+    }
+
+    const maxHistory = 100;
+    let historyStack = [];
+    let historyIndex = -1;
+
+    function saveHistory() {
+      const groovesCopy = JSON.parse(JSON.stringify(state.grooves));
+      historyStack = historyStack.slice(0, historyIndex + 1);
+      historyStack.push({
+        grooves: groovesCopy,
+        selectedGroove: state.selectedGroove,
+        selectedEvent: state.selectedEvent
+      });
+      if (historyStack.length > maxHistory) {
+        historyStack.shift();
+      } else {
+        historyIndex++;
+      }
+    }
+
+    function undo() {
+      if (historyIndex > 0) {
+        stopPlayback();
+        historyIndex--;
+        const entry = historyStack[historyIndex];
+        state.grooves = JSON.parse(JSON.stringify(entry.grooves));
+        state.selectedGroove = entry.selectedGroove;
+        state.selectedEvent = entry.selectedEvent;
+        validateAndRender('Desfeito.');
+      } else {
+        setStatus('Nada para desfazer.', 'bad');
+      }
+    }
+
+    function redo() {
+      if (historyIndex < historyStack.length - 1) {
+        stopPlayback();
+        historyIndex++;
+        const entry = historyStack[historyIndex];
+        state.grooves = JSON.parse(JSON.stringify(entry.grooves));
+        state.selectedGroove = entry.selectedGroove;
+        state.selectedEvent = entry.selectedEvent;
+        validateAndRender('Refeito.');
+      } else {
+        setStatus('Nada para refazer.', 'bad');
+      }
+    }
+
+    function eventsToCells(events, target) {
+      const cells = Array(target).fill(null).map(() => ({ kind: 'rest', eventId: null }));
+      let currentStep = 0;
+      events.forEach((ev, idx) => {
+        const span = 16 * ev.z / ev.n;
+        for (let i = 0; i < span; i++) {
+          if (currentStep + i < target) {
+            cells[currentStep + i] = {
+              kind: ev.kind,
+              eventId: ev.kind === 'chord' ? idx : null
+            };
+          }
+        }
+        currentStep += span;
+      });
+      return cells;
+    }
+
+    function decomposeRest(span) {
+      const events = [];
+      let remaining = span;
+      const sizes = [
+        { steps: 16, z: 1, n: 1 },
+        { steps: 8, z: 1, n: 2 },
+        { steps: 4, z: 1, n: 4 },
+        { steps: 2, z: 1, n: 8 },
+        { steps: 1, z: 1, n: 16 }
+      ];
+      for (const size of sizes) {
+        while (remaining >= size.steps) {
+          events.push({ kind: 'rest', z: size.z, n: size.n });
+          remaining -= size.steps;
+        }
+      }
+      return events;
+    }
+
+    function stepsToDuration(span) {
+      if (span === 16) return { z: 1, n: 1 };
+      if (span === 8) return { z: 1, n: 2 };
+      if (span === 4) return { z: 1, n: 4 };
+      if (span === 2) return { z: 1, n: 8 };
+      if (span === 1) return { z: 1, n: 16 };
+      let gcd = (a, b) => b ? gcd(b, a % b) : a;
+      let divisor = gcd(span, 16);
+      return { z: span / divisor, n: 16 / divisor };
+    }
+
+    function rebuildEventsFromCells(cells) {
+      const events = [];
+      let i = 0;
+      while (i < cells.length) {
+        if (cells[i].kind === 'chord') {
+          const startId = cells[i].eventId;
+          let span = 0;
+          while (i + span < cells.length && cells[i + span].kind === 'chord' && cells[i + span].eventId === startId) {
+            span++;
+          }
+          const dur = stepsToDuration(span);
+          events.push({ kind: 'chord', z: dur.z, n: dur.n });
+          i += span;
+        } else {
+          let span = 0;
+          while (i + span < cells.length && cells[i + span].kind === 'rest') {
+            span++;
+          }
+          const restEvents = decomposeRest(span);
+          events.push(...restEvents);
+          i += span;
+        }
+      }
+      return events;
+    }
+
+    function getEventStartStep(events, eventIdx) {
+      let step = 0;
+      for (let i = 0; i < eventIdx; i++) {
+        step += 16 * events[i].z / events[i].n;
+      }
+      return step;
+    }
+
+    function findEventIndexAtStep(events, stepIndex) {
+      let currentStep = 0;
+      for (let idx = 0; idx < events.length; idx++) {
+        const span = 16 * events[idx].z / events[idx].n;
+        if (stepIndex >= currentStep && stepIndex < currentStep + span) {
+          return idx;
+        }
+        currentStep += span;
+      }
+      return -1;
+    }
+
+    function changeEventDuration(eventIdx, newZ, newN) {
+      stopPlayback();
+      const g = current();
+      const target = targetUnits(g);
+      if (eventIdx < 0 || eventIdx >= g.events.length) return;
+      
+      const ev = g.events[eventIdx];
+      const startStep = getEventStartStep(g.events, eventIdx);
+      const newSpan = 16 * newZ / newN;
+      
+      let actualSpan = newSpan;
+      if (startStep + actualSpan > target) {
+        actualSpan = target - startStep;
+      }
+      if (actualSpan <= 0) return;
+      
+      const cells = eventsToCells(g.events, target);
+      const newEventId = Math.random();
+      for (let i = 0; i < actualSpan; i++) {
+        cells[startStep + i] = {
+          kind: ev.kind,
+          eventId: ev.kind === 'chord' ? newEventId : null
+        };
+      }
+      
+      g.events = rebuildEventsFromCells(cells);
+      
+      const newIdx = findEventIndexAtStep(g.events, startStep);
+      if (newIdx >= 0) {
+        state.selectedEvent = newIdx;
+      }
+      
+      saveHistory();
+      validateAndRender('Duração da figura alterada.');
+    }
+
+    function adjustGrooveDuration(g) {
+      const target = targetUnits(g);
+      const cells = eventsToCells(g.events, target);
+      while (cells.length < target) {
+        cells.push({ kind: 'rest', eventId: null });
+      }
+      if (cells.length > target) {
+        cells.length = target;
+      }
+      g.events = rebuildEventsFromCells(cells);
+    }
+
+    function initializeGrooveRests(g) {
+      const target = targetUnits(g);
+      g.events = decomposeRest(target);
+    }
+
+    function handleStepClick(stepIndex) {
+      stopPlayback();
+      const g = current();
+      const idx = findEventIndexAtStep(g.events, stepIndex);
+      if (idx >= 0) {
+        handleEventClick(idx);
+      }
+    }
     function safeFunctionName(name, i){
       return "generate" + name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]+/g, " ").trim().split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join("") + "Groove" + i;
     }
@@ -404,7 +896,62 @@
         const item = document.createElement('div');
         item.className = 'groove-item' + (i === state.selectedGroove ? ' active' : '');
         item.innerHTML = `<div><strong>${escapeHtml(g.name)}</strong><div class="groove-meta">${g.bars} compasso(s) · ${g.events.length} eventos</div></div><span>${totalUnits(g)}/${targetUnits(g)}</span>`;
-        item.onclick = () => { state.selectedGroove = i; state.selectedEvent = -1; renderAll(); };
+        item.onclick = () => { stopPlayback(); state.selectedGroove = i; state.selectedEvent = -1; renderAll(); };
+        
+        // Drag & Drop
+        item.draggable = true;
+        
+        item.addEventListener('dragstart', (e) => {
+          stopPlayback();
+          e.dataTransfer.setData('text/plain', i);
+          e.dataTransfer.effectAllowed = 'move';
+          item.classList.add('dragging');
+        });
+        
+        item.addEventListener('dragend', () => {
+          item.classList.remove('dragging');
+          list.querySelectorAll('.groove-item').forEach(el => {
+            el.classList.remove('drag-over');
+          });
+        });
+        
+        item.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+        });
+        
+        item.addEventListener('dragenter', (e) => {
+          e.preventDefault();
+          item.classList.add('drag-over');
+        });
+        
+        item.addEventListener('dragleave', () => {
+          item.classList.remove('drag-over');
+        });
+        
+        item.addEventListener('drop', (e) => {
+          e.preventDefault();
+          item.classList.remove('drag-over');
+          
+          const dragIdx = parseInt(e.dataTransfer.getData('text/plain'), 10);
+          const dropIdx = i;
+          
+          if (!isNaN(dragIdx) && dragIdx !== dropIdx) {
+            const draggedItem = state.grooves[dragIdx];
+            const selectedGrooveObj = state.grooves[state.selectedGroove];
+            
+            // Reorder grooves array
+            state.grooves.splice(dragIdx, 1);
+            state.grooves.splice(dropIdx, 0, draggedItem);
+            
+            // Fix index of selected groove
+            state.selectedGroove = state.grooves.indexOf(selectedGrooveObj);
+            
+            saveHistory();
+            validateAndRender('Ordenação de levadas atualizada.');
+          }
+        });
+
         list.appendChild(item);
       });
     }
@@ -413,12 +960,79 @@
       const g = current();
       document.getElementById('grooveName').value = g.name;
       document.getElementById('barsSelect').value = String(g.bars);
+      document.getElementById('timeSigSelect').value = g.timeSig || "4/4";
       const units = totalUnits(g), target = targetUnits(g);
       const ok = units === target;
-      const hint = document.getElementById('durationHint');
-      hint.textContent = ok ? `Duração correta: ${g.bars} compasso(s).` : `Duração atual: ${units}/16. Alvo: ${target}/16. Ajuste eventos até fechar o compasso.`;
-      hint.style.color = ok ? 'var(--accent)' : (units > target ? 'var(--danger)' : 'var(--warn)');
       document.getElementById('durationMeter').style.width = Math.min(100, (units / target) * 100) + '%';
+    }
+
+
+
+    function getFigureName(kind, z, n) {
+      const key = `${z}/${n}`;
+      const names = {
+        "1/1": "Semibreve",
+        "1/2": "Mínima",
+        "1/4": "Semínima",
+        "1/8": "Colcheia",
+        "1/16": "Semicolcheia"
+      };
+      const typeStr = kind === 'chord' ? 'Acorde' : 'Pausa';
+      return names[key] ? `${typeStr} de ${names[key]}` : `${typeStr} (${key})`;
+    }
+
+    let clickTimer = null;
+    function handleEventClick(idx) {
+      if (clickTimer) {
+        clearTimeout(clickTimer);
+        clickTimer = null;
+        deleteEvent(idx);
+      } else {
+        clickTimer = setTimeout(() => {
+          clickTimer = null;
+          if (state.selectedEvent === idx) {
+            toggleEventKind(idx);
+          } else {
+            state.selectedEvent = idx;
+            renderAll();
+          }
+        }, 220);
+      }
+    }
+
+    function toggleEventKind(idx) {
+      stopPlayback();
+      const ev = current().events[idx];
+      ev.kind = ev.kind === 'chord' ? 'rest' : 'chord';
+      saveHistory();
+      validateAndRender('Tipo alternado.');
+    }
+
+    function setEventKind(idx, kind) {
+      stopPlayback();
+      const ev = current().events[idx];
+      if (ev.kind !== kind) {
+        ev.kind = kind;
+        saveHistory();
+        validateAndRender(kind === 'chord' ? 'Convertido para acorde.' : 'Convertido para pausa.');
+      }
+    }
+
+    function deleteEvent(idx) {
+      stopPlayback();
+      const g = current();
+      const startStep = getEventStartStep(g.events, idx);
+      const span = 16 * g.events[idx].z / g.events[idx].n;
+      const target = targetUnits(g);
+      
+      const cells = eventsToCells(g.events, target);
+      for (let i = 0; i < span; i++) {
+        cells[startStep + i] = { kind: 'rest', eventId: null };
+      }
+      g.events = rebuildEventsFromCells(cells);
+      state.selectedEvent = -1;
+      saveHistory();
+      validateAndRender('Evento deletado.');
     }
 
     function renderTimeline(){
@@ -426,51 +1040,197 @@
       const steps = targetUnits(g);
       const timeline = document.getElementById('timeline');
       timeline.style.setProperty('--steps', steps);
+      
+      const timeSig = g.timeSig || "4/4";
+      const isCompound = timeSig.endsWith("/8");
+      const beatSize = isCompound ? 6 : 4;
+      const beatsPerBar = isCompound ? (Number(timeSig.split('/')[0]) / 3) : Number(timeSig.split('/')[0]);
       let labels = '<div class="bar-labels">';
       for (let i = 0; i < steps; i++) {
-        const strong = i % 4 === 0;
-        const beat = Math.floor(i / 4) + 1;
-        labels += `<div class="tick-label ${strong ? 'strong' : ''}">${strong ? beat : ''}</div>`;
+        const strong = i % beatSize === 0;
+        const isOffbeat = !isCompound && (i % 4 === 2);
+        if (strong) {
+          const beatIndexAll = Math.floor(i / beatSize);
+          const beat = (beatIndexAll % beatsPerBar) + 1;
+          labels += `<div class="tick-label strong">${beat}</div>`;
+        } else if (isOffbeat) {
+          labels += `<div class="tick-label strong" style="opacity: 0.6;">&amp;</div>`;
+        } else {
+          labels += `<div class="tick-label"></div>`;
+        }
       }
       labels += '</div>';
+
+      let gridBg = '<div class="grid-bg">';
+      for (let i = 0; i < steps; i++) {
+        gridBg += '<div class="bg-cell"></div>';
+      }
+      gridBg += '</div>';
+
       let pos = 1;
       let events = '<div class="events">';
+      events += gridBg;
       g.events.forEach((ev, idx) => {
         const span = 16 * ev.z / ev.n;
-        events += `<div class="event ${ev.kind} ${idx === state.selectedEvent ? 'selected' : ''}" style="grid-column:${pos}/span ${span}" data-idx="${idx}"><div class="kind">${ev.kind === 'chord' ? 'Acorde' : 'Pausa'}</div><div class="dur">${durationText(ev)}</div></div>`;
+        if (ev.kind === 'chord') {
+          events += `<div class="event ${ev.kind} ${idx === state.selectedEvent ? 'selected' : ''}" style="grid-column:${pos}/span ${span}" data-idx="${idx}" draggable="true">
+            <div class="kind" style="font-size: 11px;">Acorde</div>
+            <div class="dur">${durationText(ev)}</div>
+            <div class="resize-handle"></div>
+          </div>`;
+        }
         pos += span;
       });
-      events += '</div>';
+      events += '<div id="playbackCursor" class="playback-cursor"></div></div>';
       timeline.innerHTML = labels + events;
-      timeline.querySelectorAll('.event').forEach(el => el.onclick = () => { state.selectedEvent = Number(el.dataset.idx); renderAll(); });
+      
+      const eventsContainer = timeline.querySelector('.events');
+      if (eventsContainer) {
+        eventsContainer.onclick = (e) => {
+          if (typeof timelineDragOccurred !== 'undefined' && timelineDragOccurred) {
+            timelineDragOccurred = false;
+            return;
+          }
+          const eventEl = e.target.closest('.event');
+          if (eventEl) {
+            const idx = Number(eventEl.dataset.idx);
+            handleEventClick(idx);
+          } else {
+            const rect = eventsContainer.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const width = rect.width;
+            const stepIndex = Math.floor((clickX / width) * steps);
+            
+            const idx = findEventIndexAtStep(g.events, stepIndex);
+            if (idx >= 0) {
+              state.selectedEvent = idx;
+              renderAll();
+            }
+          }
+        };
+
+        eventsContainer.ondragover = (e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+        };
+        eventsContainer.ondrop = (e) => {
+          e.preventDefault();
+          const dragIdx = Number(e.dataTransfer.getData('text/plain'));
+          if (isNaN(dragIdx)) return;
+          
+          const rect = eventsContainer.getBoundingClientRect();
+          const clickX = e.clientX - rect.left;
+          const width = rect.width;
+          const dropStep = Math.floor((clickX / width) * steps);
+          
+          const dropIdx = findEventIndexAtStep(g.events, dropStep);
+          if (dragIdx !== dropIdx && dropIdx >= 0) {
+            stopPlayback();
+            const arr = g.events;
+            const draggedItem = arr.splice(dragIdx, 1)[0];
+            arr.splice(dropIdx, 0, draggedItem);
+            state.selectedEvent = dropIdx;
+            saveHistory();
+            validateAndRender('Evento movido.');
+          }
+        };
+      }
+
+      timeline.querySelectorAll('.event').forEach(el => {
+        const idx = Number(el.dataset.idx);
+        
+        el.ondragstart = (e) => {
+          e.dataTransfer.setData('text/plain', idx);
+          e.dataTransfer.effectAllowed = 'move';
+          state.selectedEvent = idx;
+          renderAll();
+        };
+        el.ondragover = (e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+        };
+        el.ondrop = (e) => {
+          e.preventDefault();
+          const dragIdx = Number(e.dataTransfer.getData('text/plain'));
+          const dropIdx = idx;
+          if (dragIdx !== dropIdx) {
+            stopPlayback();
+            const arr = current().events;
+            const draggedItem = arr.splice(dragIdx, 1)[0];
+            arr.splice(dropIdx, 0, draggedItem);
+            state.selectedEvent = dropIdx;
+            saveHistory();
+            validateAndRender('Evento movido com o mouse.');
+          }
+        };
+      });
     }
 
-    function renderRows(){
-      const tbody = document.getElementById('eventRows');
-      tbody.innerHTML = '';
-      current().events.forEach((ev, idx) => {
-        const tr = document.createElement('tr');
-        tr.className = idx === state.selectedEvent ? 'active' : '';
-        tr.onclick = () => { state.selectedEvent = idx; renderAll(); };
-        tr.innerHTML = `<td>${idx + 1}</td><td>${ev.kind === 'chord' ? 'Acorde' : 'Pausa'}</td><td>${durationText(ev)}</td><td><button class="btn small" data-edit="${idx}">Editar</button></td>`;
-        tbody.appendChild(tr);
+    function detectBeamedGroups(events) {
+      const notes = [];
+      let currentStep = 0;
+      events.forEach((ev, idx) => {
+        const span = 16 * ev.z / ev.n;
+        notes.push({
+          idx: idx,
+          kind: ev.kind,
+          z: ev.z,
+          n: ev.n,
+          span: span,
+          start: currentStep,
+          end: currentStep + span,
+          beamed: false,
+          groupId: null
+        });
+        currentStep += span;
       });
-      tbody.querySelectorAll('button[data-edit]').forEach(btn => btn.onclick = (e) => {
-        e.stopPropagation();
-        const idx = Number(btn.dataset.edit);
-        const ev = current().events[idx];
-        const kind = prompt('Tipo do evento: chord ou rest', ev.kind);
-        if (!kind || !['chord','rest'].includes(kind)) return;
-        const dur = prompt('Duração no formato z/n. Ex.: 1/8, 1/4, 1/16', `${ev.z}/${ev.n}`);
-        if (!dur || !/^\d+\/\d+$/.test(dur)) return;
-        const [z,n] = dur.split('/').map(Number);
-        current().events[idx] = {kind, z, n};
-        validateAndRender('Evento editado.');
+
+      const totalSteps = currentStep;
+      const timeSig = current().timeSig || "4/4";
+      const beatSize = timeSig === "6/8" ? 6 : 4;
+      const numBeats = Math.ceil(totalSteps / beatSize);
+      const groups = [];
+
+      for (let beat = 0; beat < numBeats; beat++) {
+        const beatStart = beat * beatSize;
+        const beatEnd = beatStart + beatSize;
+
+        const beatNotes = notes.filter(n => n.start >= beatStart && n.end <= beatEnd && n.kind === 'chord');
+        const beamCandidates = beatNotes.filter(n => n.span <= 2);
+
+        let currentGroup = [];
+        for (let i = 0; i < beamCandidates.length; i++) {
+          const node = beamCandidates[i];
+          if (currentGroup.length === 0) {
+            currentGroup.push(node);
+          } else {
+            const lastNode = currentGroup[currentGroup.length - 1];
+            if (node.idx === lastNode.idx + 1) {
+              currentGroup.push(node);
+            } else {
+              if (currentGroup.length >= 2) {
+                groups.push(currentGroup);
+              }
+              currentGroup = [node];
+            }
+          }
+        }
+        if (currentGroup.length >= 2) {
+          groups.push(currentGroup);
+        }
+      }
+
+      groups.forEach((g, gIdx) => {
+        g.forEach(n => {
+          notes[n.idx].beamed = true;
+          notes[n.idx].groupId = gIdx;
+        });
       });
+
+      return { notes, groups };
     }
 
-    function renderCode(){ document.getElementById('codePreview').textContent = generatePluginCode(); }
-    function renderAll(){ renderGrooveList(); renderForm(); renderTimeline(); renderRows(); renderCode(); }
+    function renderAll(){ renderGrooveList(); renderForm(); renderTimeline(); }
 
     function validateAndRender(msg){
       const units = totalUnits(), target = targetUnits();
@@ -482,51 +1242,306 @@
 
     function escapeHtml(str){ return String(str).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
-    document.getElementById('grooveName').addEventListener('input', e => { current().name = e.target.value || 'Sem nome'; renderGrooveList(); renderCode(); });
-    document.getElementById('barsSelect').addEventListener('change', e => { current().bars = Number(e.target.value); validateAndRender('Quantidade de compassos alterada.'); });
-    document.getElementById('addEventBtn').onclick = () => {
-      const kind = document.getElementById('kindInput').value;
-      const d = parseDuration(document.getElementById('durationInput').value);
-      current().events.push({ kind, z: d.z, n: d.n });
-      state.selectedEvent = current().events.length - 1;
-      validateAndRender('Evento adicionado.');
+    document.getElementById('grooveName').addEventListener('input', e => { stopPlayback(); current().name = e.target.value || 'Sem nome'; renderGrooveList(); });
+    document.getElementById('grooveName').addEventListener('change', e => { saveHistory(); });
+    document.getElementById('barsSelect').addEventListener('change', e => {
+      stopPlayback();
+      current().bars = Number(e.target.value);
+      adjustGrooveDuration(current());
+      state.selectedEvent = -1;
+      saveHistory();
+      validateAndRender('Quantidade de compassos alterada.');
+    });
+    document.getElementById('timeSigSelect').addEventListener('change', e => {
+      stopPlayback();
+      current().timeSig = e.target.value;
+      adjustGrooveDuration(current());
+      state.selectedEvent = -1;
+      saveHistory();
+      validateAndRender('Fórmula de compasso alterada.');
+    });
+    // Audio Player State & Synthesis
+    let audioCtx = null;
+    let isPlaying = false;
+    let bpm = 100;
+    let activeOscillators = [];
+    let scheduleIntervalId = null;
+    let currentStep = 0;
+    let nextStepTime = 0;
+
+    function getPlaybackTimeline() {
+      const g = current();
+      const timeline = [];
+      let currentStepOffset = 0;
+      g.events.forEach((ev, idx) => {
+        const span = 16 * ev.z / ev.n;
+        timeline.push({
+          step: currentStepOffset,
+          eventIdx: idx,
+          event: ev,
+          span: span
+        });
+        currentStepOffset += span;
+      });
+      return { timeline, totalSteps: currentStepOffset };
+    }
+
+    function playC7Chord(time, durationSec) {
+      if (!audioCtx) return;
+      // C7 Chord notes: C3, C4, E4, G4, Bb4
+      const freqs = [130.81, 261.63, 329.63, 392.00, 466.16];
+      const oscType = 'triangle';
+      
+      const chordGain = audioCtx.createGain();
+      const filter = audioCtx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(900, time); // warm filter cut-off
+      
+      chordGain.connect(filter);
+      filter.connect(audioCtx.destination);
+      
+      const volume = 0.12; // polyphonic scale volume to prevent clipping
+      chordGain.gain.setValueAtTime(0, time);
+      chordGain.gain.linearRampToValueAtTime(volume, time + 0.008); // attack
+      chordGain.gain.exponentialRampToValueAtTime(volume * 0.4, time + 0.12); // decay
+      chordGain.gain.setValueAtTime(volume * 0.4, time + durationSec - 0.04); // sustain
+      chordGain.gain.exponentialRampToValueAtTime(0.0001, time + durationSec); // release
+      
+      const chordOscs = [];
+      freqs.forEach(freq => {
+        const osc = audioCtx.createOscillator();
+        osc.type = oscType;
+        osc.frequency.setValueAtTime(freq, time);
+        osc.connect(chordGain);
+        osc.start(time);
+        osc.stop(time + durationSec);
+        chordOscs.push(osc);
+        activeOscillators.push(osc);
+      });
+      
+      setTimeout(() => {
+        activeOscillators = activeOscillators.filter(o => !chordOscs.includes(o));
+      }, (time - audioCtx.currentTime + durationSec) * 1000 + 100);
+    }
+
+    function playMetronomeClick(time, isFirstBeat) {
+      if (!audioCtx) return;
+      const osc = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      
+      osc.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(isFirstBeat ? 1200 : 800, time);
+      
+      gainNode.gain.setValueAtTime(0, time);
+      gainNode.gain.linearRampToValueAtTime(0.1, time + 0.002);
+      gainNode.gain.exponentialRampToValueAtTime(0.0001, time + 0.035);
+      
+      osc.start(time);
+      osc.stop(time + 0.04);
+      
+      activeOscillators.push(osc);
+      setTimeout(() => {
+        activeOscillators = activeOscillators.filter(o => o !== osc);
+      }, (time - audioCtx.currentTime + 0.05) * 1000 + 50);
+    }
+
+    function scheduleVisualUpdate(time, step, eventIdx, percent) {
+      const delayMs = Math.max(0, (time - audioCtx.currentTime) * 1000);
+      setTimeout(() => {
+        if (!isPlaying) return;
+        const cursorEl = document.getElementById('playbackCursor');
+        if (cursorEl) {
+          cursorEl.style.display = 'block';
+          cursorEl.style.left = `${percent}%`;
+        }
+        highlightActiveEvent(eventIdx);
+      }, delayMs);
+    }
+
+    function highlightActiveEvent(activeIdx) {
+      const timelineEl = document.getElementById('timeline');
+      if (timelineEl) {
+        const events = timelineEl.querySelectorAll('.event');
+        events.forEach((el, idx) => {
+          if (Number(el.dataset.idx) === activeIdx) {
+            el.style.boxShadow = '0 0 12px #ff4757';
+            el.style.borderColor = '#ff4757';
+          } else {
+            el.style.boxShadow = '';
+            el.style.borderColor = '';
+          }
+        });
+      }
+    }
+
+    function clearVisualPlaybackHighlight() {
+      const cursorEl = document.getElementById('playbackCursor');
+      if (cursorEl) cursorEl.style.display = 'none';
+      
+      const timelineEl = document.getElementById('timeline');
+      if (timelineEl) {
+        const events = timelineEl.querySelectorAll('.event');
+        events.forEach(el => {
+          el.style.boxShadow = '';
+          el.style.borderColor = '';
+        });
+      }
+    }
+
+    function stopAllSounds() {
+      activeOscillators.forEach(osc => {
+        try { osc.stop(); } catch(e) {}
+      });
+      activeOscillators = [];
+    }
+
+    function scheduler() {
+      if (!isPlaying) return;
+      
+      const playbackData = getPlaybackTimeline();
+      const totalSteps = playbackData.totalSteps;
+      if (totalSteps === 0) {
+        stopPlayback();
+        return;
+      }
+      
+      const sixteenthDurationSec = 15 / bpm;
+      const lookahead = 0.1; // 100ms lookahead
+      
+      while (nextStepTime < audioCtx.currentTime + lookahead) {
+        const time = nextStepTime;
+        const step = currentStep;
+        
+        // 1. Play metronome if enabled
+        const timeSig = current().timeSig || "4/4";
+        const beatSize = timeSig.endsWith("/8") ? 6 : 4;
+        const isMetronomeEnabled = document.getElementById('metroCheckbox').checked;
+        if (isMetronomeEnabled && (step % beatSize === 0)) {
+          const isFirstBeat = (step === 0);
+          playMetronomeClick(time, isFirstBeat);
+        }
+        
+        // 2. Play event sound and schedule highlight
+        const entry = playbackData.timeline.find(t => t.step === step);
+        const percent = (step / totalSteps) * 100;
+        
+        if (entry) {
+          const eventDurationSec = entry.span * sixteenthDurationSec;
+          if (entry.event.kind === 'chord') {
+            playC7Chord(time, eventDurationSec);
+          }
+          scheduleVisualUpdate(time, step, entry.eventIdx, percent);
+        } else {
+          const activeEntry = playbackData.timeline.find(t => step >= t.step && step < t.step + t.span);
+          const activeIdx = activeEntry ? activeEntry.eventIdx : -1;
+          scheduleVisualUpdate(time, step, activeIdx, percent);
+        }
+        
+        nextStepTime += sixteenthDurationSec;
+        currentStep = (currentStep + 1) % totalSteps;
+      }
+      
+      scheduleIntervalId = setTimeout(scheduler, 25);
+    }
+
+    function startPlayback() {
+      if (isPlaying) return;
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      isPlaying = true;
+      currentStep = 0;
+      nextStepTime = audioCtx.currentTime + 0.05;
+      
+      const playBtn = document.getElementById('playBtn');
+      playBtn.textContent = '■';
+      playBtn.classList.add('playing');
+      scheduler();
+    }
+
+    function stopPlayback() {
+      if (!isPlaying) return;
+      isPlaying = false;
+      if (scheduleIntervalId) {
+        clearTimeout(scheduleIntervalId);
+        scheduleIntervalId = null;
+      }
+      stopAllSounds();
+      clearVisualPlaybackHighlight();
+      
+      const playBtn = document.getElementById('playBtn');
+      playBtn.textContent = '▶';
+      playBtn.classList.remove('playing');
+    }
+
+    function togglePlayback() {
+      if (isPlaying) {
+        stopPlayback();
+      } else {
+        startPlayback();
+      }
+    }
+
+
+
+    // Player controls bindings
+    document.getElementById('playBtn').onclick = () => {
+      togglePlayback();
     };
+
+    const bpmSlider = document.getElementById('bpmSlider');
+    const bpmDisplay = document.getElementById('bpmDisplay');
+    bpmSlider.addEventListener('input', (e) => {
+      bpm = Number(e.target.value);
+      bpmDisplay.textContent = `${bpm} BPM`;
+    });
     document.getElementById('addGrooveBtn').onclick = () => {
-      state.grooves.push({ name: 'Nova Levada', bars: 1, events: [chord(1,4), rest(1,4), chord(1,4), chord(1,4)] });
+      stopPlayback();
+      const newG = { name: 'Nova Levada', bars: 1, timeSig: '4/4', events: [] };
+      initializeGrooveRests(newG);
+      state.grooves.push(newG);
       state.selectedGroove = state.grooves.length - 1;
       state.selectedEvent = -1;
+      saveHistory();
       validateAndRender('Nova levada criada.');
     };
     document.getElementById('duplicateGrooveBtn').onclick = () => {
+      stopPlayback();
       const copy = JSON.parse(JSON.stringify(current()));
       copy.name += ' cópia';
       state.grooves.push(copy);
       state.selectedGroove = state.grooves.length - 1;
       state.selectedEvent = -1;
+      saveHistory();
       validateAndRender('Levada duplicada.');
     };
     document.getElementById('deleteGrooveBtn').onclick = () => {
+      stopPlayback();
       if (state.grooves.length <= 1) return setStatus('Mantenha pelo menos uma levada.', 'bad');
       state.grooves.splice(state.selectedGroove, 1);
       state.selectedGroove = Math.max(0, state.selectedGroove - 1);
       state.selectedEvent = -1;
+      saveHistory();
       validateAndRender('Levada excluída.');
     };
     document.getElementById('deleteEventBtn').onclick = () => {
       if (state.selectedEvent < 0) return setStatus('Selecione um evento primeiro.', 'bad');
-      current().events.splice(state.selectedEvent, 1);
-      state.selectedEvent = -1;
-      validateAndRender('Evento excluído.');
+      deleteEvent(state.selectedEvent);
     };
     document.getElementById('toggleKindBtn').onclick = () => {
       if (state.selectedEvent < 0) return setStatus('Selecione um evento primeiro.', 'bad');
-      const ev = current().events[state.selectedEvent];
-      ev.kind = ev.kind === 'chord' ? 'rest' : 'chord';
-      validateAndRender('Tipo alternado.');
+      toggleEventKind(state.selectedEvent);
     };
     document.getElementById('moveLeftBtn').onclick = () => moveEvent(-1);
     document.getElementById('moveRightBtn').onclick = () => moveEvent(1);
     function moveEvent(dir){
+      stopPlayback();
       const idx = state.selectedEvent;
       if (idx < 0) return setStatus('Selecione um evento primeiro.', 'bad');
       const next = idx + dir;
@@ -534,6 +1549,7 @@
       const arr = current().events;
       [arr[idx], arr[next]] = [arr[next], arr[idx]];
       state.selectedEvent = next;
+      saveHistory();
       validateAndRender('Evento movido.');
     }
 
@@ -574,6 +1590,7 @@
     }
 
     async function handlePluginImport(mode){
+      stopPlayback();
       const input = document.getElementById('pluginImportInput');
       const file = input.files && input.files[0];
       if (!file) return setStatus('Escolha um arquivo .qml para importar.', 'bad');
@@ -592,6 +1609,7 @@
           state.selectedGroove = startIndex;
         }
         state.selectedEvent = -1;
+        saveHistory();
         validateAndRender(`${imported.length} estilo(s) importado(s) do plugin.`);
       } catch (err) {
         setStatus('Falha ao importar o plugin: ' + err.message, 'bad');
@@ -1185,7 +2203,390 @@ ${grooveButtons()}
 `;
     }
 
+    let copiedEvent = null;
+    window.addEventListener('keydown', (e) => {
+      const active = document.activeElement;
+      if (active && (active.tagName === 'INPUT' || active.tagName === 'SELECT' || active.tagName === 'TEXTAREA')) {
+        return; // Ignore shortcuts when editing text or dropdowns
+      }
+      
+      const g = current();
+      const keyChar = (e.key || '').toLowerCase();
+      
+      // 1. Play/Pause (Space)
+      if (e.code === 'Space') {
+        e.preventDefault();
+        togglePlayback();
+        return;
+      }
+      
+      // 2. Keyboard Shortcuts for Durations (1-5 or MuseScore 3-7)
+      let durationSelected = null;
+      if (e.code === 'Digit1') durationSelected = { z: 1, n: 16 };      // Semicolcheia (1/16)
+      else if (e.code === 'Digit2') durationSelected = { z: 1, n: 8 };  // Colcheia (1/8)
+      else if (e.code === 'Digit3' && !e.ctrlKey && !e.metaKey) durationSelected = { z: 1, n: 4 };  // Semínima (1/4)
+      else if (e.code === 'Digit4') durationSelected = { z: 1, n: 2 };  // Mínima (1/2)
+      else if (e.code === 'Digit5') durationSelected = { z: 1, n: 1 };  // Semibreve (1/1)
+      
+      // MuseScore defaults
+      else if (e.code === 'Digit3' && (e.ctrlKey || e.metaKey)) { /* ignore so it doesn't conflict with duration */ }
+      else if (e.code === 'Digit3') durationSelected = { z: 1, n: 16 };
+      else if (e.code === 'Digit4') durationSelected = { z: 1, n: 8 };
+      else if (e.code === 'Digit5') durationSelected = { z: 1, n: 4 };
+      else if (e.code === 'Digit6') durationSelected = { z: 1, n: 2 };
+      else if (e.code === 'Digit7') durationSelected = { z: 1, n: 1 };
+
+      if (durationSelected) {
+        e.preventDefault();
+        if (state.selectedEvent >= 0) {
+          changeEventDuration(state.selectedEvent, durationSelected.z, durationSelected.n);
+        } else {
+          setStatus('Selecione uma nota primeiro para alterar sua duração.', 'bad');
+        }
+        return;
+      }
+
+      // 3. Chord insertion/conversion (C / Enter)
+      if (keyChar === 'c' || e.code === 'Enter') {
+        if (!e.ctrlKey && !e.metaKey) {
+          e.preventDefault();
+          if (state.selectedEvent >= 0) {
+            setEventKind(state.selectedEvent, 'chord');
+          } else {
+            setStatus('Selecione um evento primeiro.', 'bad');
+          }
+          return;
+        }
+      }
+
+      // 4. Rest insertion/conversion (0 / R)
+      if (keyChar === '0' || keyChar === 'r') {
+        if (!e.ctrlKey && !e.metaKey) {
+          e.preventDefault();
+          if (state.selectedEvent >= 0) {
+            setEventKind(state.selectedEvent, 'rest');
+          } else {
+            setStatus('Selecione um evento primeiro.', 'bad');
+          }
+          return;
+        }
+      }
+
+      // 5. Delete / Backspace
+      if (e.code === 'Delete' || e.code === 'Backspace') {
+        e.preventDefault();
+        if (state.selectedEvent >= 0) {
+          deleteEvent(state.selectedEvent);
+        } else {
+          setStatus('Selecione um evento primeiro.', 'bad');
+        }
+        return;
+      }
+
+      // 6. Navigation (ArrowLeft / ArrowRight)
+      if (e.code === 'ArrowLeft') {
+        e.preventDefault();
+        if (state.selectedEvent >= 0) {
+          if (e.shiftKey) {
+            moveEvent(-1);
+          } else {
+            state.selectedEvent = Math.max(0, state.selectedEvent - 1);
+            renderAll();
+          }
+        }
+        return;
+      }
+
+      if (e.code === 'ArrowRight') {
+        e.preventDefault();
+        if (state.selectedEvent >= 0) {
+          if (e.shiftKey) {
+            moveEvent(1);
+          } else {
+            state.selectedEvent = Math.min(g.events.length - 1, state.selectedEvent + 1);
+            renderAll();
+          }
+        } else if (g.events.length > 0) {
+          state.selectedEvent = 0;
+          renderAll();
+        }
+        return;
+      }
+
+      // 7. Clipboard & History Shortcuts
+      if ((e.ctrlKey || e.metaKey) && keyChar === 'c') {
+        e.preventDefault();
+        if (state.selectedEvent >= 0) {
+          copiedEvent = JSON.parse(JSON.stringify(g.events[state.selectedEvent]));
+          setStatus('Evento copiado.', 'good');
+        } else {
+          setStatus('Selecione um evento para copiar.', 'bad');
+        }
+      }
+      
+      else if ((e.ctrlKey || e.metaKey) && keyChar === 'x') {
+        e.preventDefault();
+        if (state.selectedEvent >= 0) {
+          copiedEvent = JSON.parse(JSON.stringify(g.events[state.selectedEvent]));
+          deleteEvent(state.selectedEvent);
+          setStatus('Evento recortado.', 'good');
+        } else {
+          setStatus('Selecione um evento para recortar.', 'bad');
+        }
+      }
+      
+      else if ((e.ctrlKey || e.metaKey) && keyChar === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          redo();
+        } else {
+          undo();
+        }
+      }
+      
+      else if ((e.ctrlKey || e.metaKey) && keyChar === 'y') {
+        e.preventDefault();
+        redo();
+      }
+      
+      else if ((e.ctrlKey || e.metaKey) && keyChar === 'v') {
+        e.preventDefault();
+        if (copiedEvent) {
+          stopPlayback();
+          const startStep = state.selectedEvent >= 0 ? getEventStartStep(g.events, state.selectedEvent) : 0;
+          const target = targetUnits(g);
+          let span = 16 * copiedEvent.z / copiedEvent.n;
+          if (startStep + span > target) {
+            span = target - startStep;
+          }
+          if (span > 0) {
+            const cells = eventsToCells(g.events, target);
+            const newEventId = Math.random();
+            for (let i = 0; i < span; i++) {
+              cells[startStep + i] = {
+                kind: copiedEvent.kind,
+                eventId: copiedEvent.kind === 'chord' ? newEventId : null
+              };
+            }
+            g.events = rebuildEventsFromCells(cells);
+            state.selectedEvent = findEventIndexAtStep(g.events, startStep);
+            saveHistory();
+            validateAndRender('Evento colado.');
+          }
+        } else {
+          setStatus('Nenhum evento copiado.', 'bad');
+        }
+      }
+    });
+
+    let isCreatingDrag = false;
+    let isResizingDrag = false;
+    let isMovingDrag = false;
+    let dragStartStep = -1;
+    let resizeEventIdx = -1;
+    let resizeStartStep = -1;
+    let moveEventIdx = -1;
+    let moveStartStep = -1;
+    let moveOriginalSpan = -1;
+    let moveClickOffset = 0;
+    let dragBaselineCells = null;
+    let timelineDragOccurred = false;
+
+    function getStepFromMouse(e, container, totalSteps) {
+      const rect = container.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const width = rect.width;
+      let stepIndex = Math.floor((clickX / width) * totalSteps);
+      return Math.max(0, Math.min(totalSteps - 1, stepIndex));
+    }
+
+    function updateDragCells(start, end) {
+      if (!dragBaselineCells) return;
+      const g = current();
+      const target = targetUnits(g);
+      const cells = JSON.parse(JSON.stringify(dragBaselineCells));
+      
+      const newEventId = Math.random();
+      for (let i = start; i <= end; i++) {
+        if (i < target) {
+          cells[i] = {
+            kind: 'chord',
+            eventId: newEventId
+          };
+        }
+      }
+      g.events = rebuildEventsFromCells(cells);
+      
+      const newIdx = findEventIndexAtStep(g.events, start);
+      if (newIdx >= 0) {
+        state.selectedEvent = newIdx;
+      }
+      renderAll();
+    }
+
+    function updateMoveCells(start, span) {
+      if (!dragBaselineCells) return;
+      const g = current();
+      const target = targetUnits(g);
+      const cells = JSON.parse(JSON.stringify(dragBaselineCells));
+      
+      const newEventId = Math.random();
+      for (let i = 0; i < span; i++) {
+        const step = start + i;
+        if (step < target) {
+          cells[step] = {
+            kind: 'chord',
+            eventId: newEventId
+          };
+        }
+      }
+      g.events = rebuildEventsFromCells(cells);
+      
+      const newIdx = findEventIndexAtStep(g.events, start);
+      if (newIdx >= 0) {
+        state.selectedEvent = newIdx;
+      }
+      renderAll();
+    }
+
+    function initTimelineMouseEvents() {
+      const timeline = document.getElementById('timeline');
+      if (!timeline) return;
+
+      timeline.addEventListener('mousedown', (e) => {
+        const resizeHandle = e.target.closest('.resize-handle');
+        const eventEl = e.target.closest('.event');
+        const eventsContainer = e.target.closest('.events');
+        const g = current();
+        const steps = targetUnits(g);
+
+        if (resizeHandle && eventEl) {
+          e.preventDefault();
+          e.stopPropagation();
+          stopPlayback();
+
+          isResizingDrag = true;
+          timelineDragOccurred = false;
+          resizeEventIdx = Number(eventEl.dataset.idx);
+          
+          state.selectedEvent = resizeEventIdx;
+          document.querySelectorAll('#timeline .event').forEach(el => el.classList.remove('selected'));
+          eventEl.classList.add('selected');
+
+          resizeStartStep = getEventStartStep(g.events, resizeEventIdx);
+          const originalSpan = 16 * g.events[resizeEventIdx].z / g.events[resizeEventIdx].n;
+
+          // Clear the resizing note from cells to create baseline
+          const cells = eventsToCells(g.events, steps);
+          for (let i = 0; i < originalSpan; i++) {
+            cells[resizeStartStep + i] = { kind: 'rest', eventId: null };
+          }
+          dragBaselineCells = cells;
+        } 
+        else if (eventEl) {
+          // Clique no bloco para arrastar e mover
+          e.preventDefault();
+          stopPlayback();
+
+          isMovingDrag = true;
+          timelineDragOccurred = false;
+          moveEventIdx = Number(eventEl.dataset.idx);
+          
+          state.selectedEvent = moveEventIdx;
+          document.querySelectorAll('#timeline .event').forEach(el => el.classList.remove('selected'));
+          eventEl.classList.add('selected');
+
+          moveStartStep = getEventStartStep(g.events, moveEventIdx);
+          moveOriginalSpan = 16 * g.events[moveEventIdx].z / g.events[moveEventIdx].n;
+
+          const clickStep = getStepFromMouse(e, eventsContainer, steps);
+          moveClickOffset = clickStep - moveStartStep;
+
+          // Limpa o bloco de acorde que está sendo movido para criar o baseline de células
+          const cells = eventsToCells(g.events, steps);
+          for (let i = 0; i < moveOriginalSpan; i++) {
+            cells[moveStartStep + i] = { kind: 'rest', eventId: null };
+          }
+          dragBaselineCells = cells;
+        }
+        else if (eventsContainer && !eventEl) {
+          e.preventDefault();
+          stopPlayback();
+
+          const step = getStepFromMouse(e, eventsContainer, steps);
+          isCreatingDrag = true;
+          timelineDragOccurred = false;
+          dragStartStep = step;
+
+          // Baseline is current cells
+          dragBaselineCells = eventsToCells(g.events, steps);
+
+          // Create initial 1-step note
+          updateDragCells(step, step);
+        }
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (!isCreatingDrag && !isResizingDrag && !isMovingDrag) return;
+        const eventsContainer = document.querySelector('#timeline .events');
+        if (!eventsContainer) return;
+
+        const g = current();
+        const steps = targetUnits(g);
+        const step = getStepFromMouse(e, eventsContainer, steps);
+        timelineDragOccurred = true;
+
+        if (isCreatingDrag) {
+          const start = Math.min(dragStartStep, step);
+          const end = Math.max(dragStartStep, step);
+          updateDragCells(start, end);
+        } 
+        else if (isResizingDrag) {
+          const end = Math.max(resizeStartStep, step);
+          updateDragCells(resizeStartStep, end);
+        }
+        else if (isMovingDrag) {
+          let newStartStep = step - moveClickOffset;
+          // Clamp start step to bounds
+          newStartStep = Math.max(0, Math.min(steps - moveOriginalSpan, newStartStep));
+          updateMoveCells(newStartStep, moveOriginalSpan);
+        }
+      });
+
+      window.addEventListener('mouseup', () => {
+        if (isCreatingDrag || isResizingDrag || isMovingDrag) {
+          isCreatingDrag = false;
+          isResizingDrag = false;
+          isMovingDrag = false;
+          dragBaselineCells = null;
+          saveHistory();
+          validateAndRender('Grade atualizada por arrasto.');
+          
+          if (timelineDragOccurred) {
+            setTimeout(() => {
+              timelineDragOccurred = false;
+            }, 50);
+          }
+        }
+      });
+    }
+
+    state.grooves.forEach(g => {
+      if (g.name.includes("2/4")) {
+        g.timeSig = "2/4";
+        g.bars = 2;
+      }
+      else if (g.name.includes("3/4")) g.timeSig = "3/4";
+      else if (g.name.includes("6/8")) g.timeSig = "6/8";
+      else if (g.name.includes("9/8")) g.timeSig = "9/8";
+      else if (g.name.includes("12/8")) g.timeSig = "12/8";
+      else g.timeSig = "4/4";
+      adjustGrooveDuration(g);
+    });
+
+    saveHistory();
     renderAll();
-  </script>
+    initTimelineMouseEvents();
+   </script>
 </body>
 </html>
