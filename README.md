@@ -28,7 +28,7 @@ O plugin gerado se chama:
 * Criação de levadas de **1 ou 2 compassos**.
 * Inserção de eventos de **acorde** e **pausa**.
 * Validação visual da duração total da levada.
-* Duplicação, exclusão e edição de levadas.
+* Duplicação, exclusão, edição e reordenação das levadas com o mouse (**Drag & Drop**).
 * Exportação automática do plugin `.qml` para MuseScore.
 * Geração de acordes a partir de uma nota selecionada.
 * Aplicação de levadas sobre acordes já escritos.
