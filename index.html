@@ -534,7 +534,7 @@
 
       <!-- Card 4: Player de Áudio (Acorde C7) -->
       <div class="card">
-        <h2>Player de Áudio (Acorde C7)</h2>
+        <h2 id="audioPlayerTitle">Player de Áudio (Acorde C7)</h2>
         <p class="hint" style="margin-top: -6px; margin-bottom: 12px; font-size: 11px;">
           Selecione uma nota/bloco no timeline. Clique único na nota selecionada inverte (acorde ⇄ pausa). Clique duplo deleta a nota.
         </p>
@@ -547,6 +547,39 @@
             <span class="hint">BPM:</span>
             <input type="range" id="bpmSlider" class="bpm-slider" min="40" max="220" value="100" />
             <span class="bpm-display" id="bpmDisplay">100 BPM</span>
+          </div>
+          
+          <div style="display: flex; gap: 8px; align-items: center; min-width: 200px;">
+            <span class="hint">Acorde:</span>
+            <select id="chordRootSelect" style="width: auto; padding: 6px 8px; border-radius: 8px; font-size: 13px; background: var(--panel2); color: var(--text); border: 1px solid var(--line);">
+              <option value="C">C</option>
+              <option value="C#">C#</option>
+              <option value="D">D</option>
+              <option value="D#">D#</option>
+              <option value="E">E</option>
+              <option value="F">F</option>
+              <option value="F#">F#</option>
+              <option value="G">G</option>
+              <option value="G#">G#</option>
+              <option value="A">A</option>
+              <option value="A#">A#</option>
+              <option value="B">B</option>
+            </select>
+            <select id="chordTypeSelect" style="width: auto; padding: 6px 8px; border-radius: 8px; font-size: 13px; background: var(--panel2); color: var(--text); border: 1px solid var(--line);">
+              <option value="X">Maior (X)</option>
+              <option value="Xm">Menor (Xm)</option>
+              <option value="Xmaj7">maj7 (Xmaj7)</option>
+              <option value="Xm(maj7)">m(maj7) (Xm(maj7))</option>
+              <option value="X7" selected>7 (X7)</option>
+              <option value="Xm7">m7 (Xm7)</option>
+              <option value="Xm7(b5)">m7(b5)</option>
+              <option value="Xdim7">dim7</option>
+              <option value="Xsus4">sus4</option>
+              <option value="Xsus2">sus2</option>
+              <option value="Xaug">aug</option>
+              <option value="X6">6</option>
+              <option value="Xm6">m6</option>
+            </select>
           </div>
           
           <label class="metro-control">
@@ -1370,10 +1403,44 @@
       return { timeline, totalSteps: currentStepOffset };
     }
 
+    const CHORD_INTERVALS = {
+      "X": [0, 4, 7],
+      "Xm": [0, 3, 7],
+      "Xmaj7": [0, 4, 7, 11],
+      "Xm(maj7)": [0, 3, 7, 11],
+      "X7": [0, 4, 7, 10],
+      "Xm7": [0, 3, 7, 10],
+      "Xm7(b5)": [0, 3, 6, 10],
+      "Xdim7": [0, 3, 6, 9],
+      "Xsus4": [0, 5, 7],
+      "Xsus2": [0, 2, 7],
+      "Xaug": [0, 4, 8],
+      "X6": [0, 4, 7, 9],
+      "Xm6": [0, 3, 7, 9]
+    };
+
+    const ROOT_MIDI = {
+      "C": 48, "C#": 49, "D": 50, "D#": 51, "E": 52, "F": 53,
+      "F#": 54, "G": 55, "G#": 56, "A": 57, "A#": 58, "B": 59
+    };
+
     function playC7Chord(time, durationSec) {
       if (!audioCtx) return;
-      // C7 Chord notes: C3, C4, E4, G4, Bb4
-      const freqs = [130.81, 261.63, 329.63, 392.00, 466.16];
+      
+      const rootVal = document.getElementById('chordRootSelect').value;
+      const typeVal = document.getElementById('chordTypeSelect').value;
+      
+      const baseMidi = ROOT_MIDI[rootVal] || 48;
+      const intervals = CHORD_INTERVALS[typeVal] || [0, 4, 7, 10];
+      
+      const midiNotes = [baseMidi, baseMidi + 12];
+      intervals.forEach(interval => {
+        if (interval !== 0) {
+          midiNotes.push(baseMidi + 12 + interval);
+        }
+      });
+      
+      const freqs = midiNotes.map(note => 440 * Math.pow(2, (note - 69) / 12));
       const oscType = 'triangle';
       
       const chordGain = audioCtx.createGain();
@@ -1585,6 +1652,19 @@
       bpm = Number(e.target.value);
       bpmDisplay.textContent = `${bpm} BPM`;
     });
+
+    const chordRootSelect = document.getElementById('chordRootSelect');
+    const chordTypeSelect = document.getElementById('chordTypeSelect');
+    
+    function updateAudioPlayerTitle() {
+      const root = chordRootSelect.value;
+      const type = chordTypeSelect.value;
+      const typeLabel = type === 'X' ? '' : (type === 'Xm' ? 'm' : type.replace('X', ''));
+      document.getElementById('audioPlayerTitle').textContent = `Player de Áudio (Acorde ${root}${typeLabel})`;
+    }
+    
+    chordRootSelect.addEventListener('change', updateAudioPlayerTitle);
+    chordTypeSelect.addEventListener('change', updateAudioPlayerTitle);
     document.getElementById('addGrooveBtn').onclick = () => {
       stopPlayback();
       const newG = { name: 'Nova Levada', bars: 1, timeSig: '4/4', events: [] };
@@ -1754,6 +1834,7 @@ MuseScore {
     property bool autoVoicingEnabled: false
     property int autoVoicingLowPitch: 55
     property int autoVoicingHighPitch: 71
+    property bool diatonicEnharmonyEnabled: false
 
     property var naturalPc: [0, 2, 4, 5, 7, 9, 11]
     property var naturalTpc: [14, 16, 18, 13, 15, 17, 19]
@@ -1794,6 +1875,17 @@ MuseScore {
         pc = mod(pc, 12);
         letter = mod(letter, 7);
         var accidental = normalizeAccidental(pc - naturalPc[letter]);
+        if (diatonicEnharmonyEnabled) {
+            var altLetters = [mod(letter - 1, 7), mod(letter + 1, 7)];
+            for (var k = 0; k < altLetters.length; k++) {
+                var altL = altLetters[k];
+                var altAcc = normalizeAccidental(pc - naturalPc[altL]);
+                if (Math.abs(altAcc) < Math.abs(accidental)) {
+                    letter = altL;
+                    accidental = altAcc;
+                }
+            }
+        }
         return naturalTpc[letter] + accidental * 7;
     }
 
@@ -1871,7 +1963,7 @@ MuseScore {
         return refs;
     }
 
-    function buildChord(label, intervals) {
+    function buildChord(label, intervals, customDegreeSteps) {
         if (!curScore) { statusText = "Nenhuma partitura aberta."; return; }
         if (referenceDegreeIndex >= intervals.length) {
             statusText = "Para " + label + ", a nota selecionada não pode ser a " + degreeNames[referenceDegreeIndex] + ".";
@@ -1881,6 +1973,7 @@ MuseScore {
         if (refs.length === 0) { statusText = "Nenhuma nota selecionada. Selecione uma cabeça de nota."; return; }
         curScore.startCmd();
         var added = 0;
+        var steps = (customDegreeSteps !== undefined && customDegreeSteps !== null) ? customDegreeSteps : degreeSteps;
         for (var r = 0; r < refs.length; r++) {
             var refNote = refs[r];
             var chord = refNote.parent;
@@ -1888,12 +1981,12 @@ MuseScore {
             var refTpc = displayedTpc(refNote);
             var refInfo = tpcInfo(refTpc);
             var rootPitch = refNote.pitch - intervals[referenceDegreeIndex];
-            var rootLetter = mod(refInfo.letter - degreeSteps[referenceDegreeIndex], 7);
+            var rootLetter = mod(refInfo.letter - steps[referenceDegreeIndex], 7);
             for (var i = 0; i < intervals.length; i++) {
                 var rawTargetPitch = rootPitch + intervals[i];
                 var finalTargetPitch = fitPitchToAutoVoicingRange(rawTargetPitch);
                 if (chordHasPitch(chord, rawTargetPitch) || chordHasPitch(chord, finalTargetPitch)) continue;
-                var targetLetter = mod(rootLetter + degreeSteps[i], 7);
+                var targetLetter = mod(rootLetter + steps[i], 7);
                 var targetTpc = spellPcAsLetter(rawTargetPitch, targetLetter);
                 var newNote = makeNote(finalTargetPitch, targetTpc);
                 chord.add(newNote);
@@ -1946,9 +2039,10 @@ MuseScore {
 
     function textFromHarmony(harmony) {
         if (!harmony) return "";
-        if (harmony.text !== undefined && harmony.text !== null) return "" + harmony.text;
-        if (harmony.plainText !== undefined && harmony.plainText !== null) return "" + harmony.plainText;
-        return "";
+        var t = "";
+        if (harmony.plainText !== undefined && harmony.plainText !== null) t = "" + harmony.plainText;
+        else if (harmony.text !== undefined && harmony.text !== null) t = "" + harmony.text;
+        return t.replace(/<[^>]*>/g, "");
     }
 
     function pitchClassFromLetterName(name) {
@@ -1964,7 +2058,13 @@ MuseScore {
     }
 
     function normalizeHarmonyText(text) {
-        return ("" + text).replace("♯", "#").replace("♭", "b").replace("Δ", "maj").replace("ø", "m7b5").replace("º", "dim").replace("°", "dim");
+        return ("" + text)
+            .replace(/♯/g, "#")
+            .replace(/♭/g, "b")
+            .replace(/Δ/g, "maj")
+            .replace(/ø/g, "m7b5")
+            .replace(/º/g, "dim")
+            .replace(/°/g, "dim");
     }
 
     function parseRootFromHarmonyText(text) {
@@ -1995,15 +2095,7 @@ MuseScore {
     }
 
     function stripParentheses(text) {
-        var out = "";
-        var depth = 0;
-        for (var i = 0; i < text.length; i++) {
-            var ch = text.charAt(i);
-            if (ch === "(") { depth++; continue; }
-            if (ch === ")") { if (depth > 0) depth--; continue; }
-            if (depth === 0) out += ch;
-        }
-        return out;
+        return ("" + text).replace(/\(/g, "").replace(/\)/g, "");
     }
 
     function intervalsFromHarmonySuffix(suffix) {
@@ -2013,12 +2105,12 @@ MuseScore {
         suffix = stripParentheses(suffix).split(" ").join("");
         var lower = suffix.toLowerCase();
         var isMinor = lower.indexOf("min") >= 0 || lower.indexOf("-") >= 0 || (lower.charAt(0) === "m" && lower.indexOf("maj") !== 0);
-        var isHalfDim = lower.indexOf("m7b5") >= 0 || lower.indexOf("0") >= 0;
+        var isHalfDim = lower.indexOf("m7b5") >= 0 || lower.indexOf("m7(b5)") >= 0 || lower.indexOf("0") >= 0;
         var isDim = lower.indexOf("dim") >= 0 || lower.indexOf("o") >= 0;
-        var isAug = lower.indexOf("aug") >= 0 || lower.indexOf("+") >= 0;
+        var isAug = lower.indexOf("aug") >= 0 || lower.indexOf("+") >= 0 || lower.indexOf("#5") >= 0 || lower.indexOf("(#5)") >= 0;
         var isSus2 = lower.indexOf("sus2") >= 0;
         var isSus4 = lower.indexOf("sus") >= 0 && !isSus2;
-        var hasMaj7 = lower.indexOf("maj7") >= 0 || lower.indexOf("ma7") >= 0 || lower.indexOf("maj") >= 0;
+        var hasMaj7 = lower.indexOf("maj7") >= 0 || lower.indexOf("ma7") >= 0 || lower.indexOf("maj") >= 0 || suffix.indexOf("7M") >= 0 || suffix.indexOf("M7") >= 0 || suffix.indexOf("(7M)") >= 0 || suffix.indexOf("(M7)") >= 0;
         var has7 = lower.indexOf("7") >= 0;
         var has6 = lower.indexOf("6") >= 0;
         var hasAdd9 = lower.indexOf("add9") >= 0 || lower.indexOf("9") >= 0;
@@ -2055,6 +2147,12 @@ MuseScore {
 
         var notes = [];
         var degreeLetters = [0, 2, 4, 6, 1, 3, 5];
+        
+        var hasSharp6 = rootData.suffix.indexOf("#6") >= 0 || rootData.suffix.indexOf("7#6") >= 0;
+        if (hasSharp6) {
+            degreeLetters = [0, 2, 4, 5, 1, 3, 5];
+        }
+
         for (var i = 0; i < intervals.length; i++) {
             var rawPitch = rootPitch + intervals[i];
             var finalPitch = fitPitchToAutoVoicingRange(rawPitch);
@@ -2240,28 +2338,175 @@ ${grooveFunctions()}
             Label { text: "A nota selecionada é:"; font.bold: true; Layout.fillWidth: true }
 
             GridLayout {
+                columns: 4
+                Layout.fillWidth: true
+                columnSpacing: 4
+                rowSpacing: 5
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 29
+                    color: referenceDegreeIndex === 0 ? "#77d7a8" : "#E0E0E0"
+                    border.color: referenceDegreeIndex === 0 ? "#2f7355" : "#C0C0C0"
+                    border.width: 1
+                    radius: 4
+                    Text {
+                        anchors.fill: parent
+                        text: "Fundamental"
+                        font.pixelSize: 10
+                        font.bold: true
+                        color: referenceDegreeIndex === 0 ? "#07140e" : "#333333"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: referenceDegreeIndex = 0
+                    }
+                }
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 29
+                    color: referenceDegreeIndex === 1 ? "#77d7a8" : "#E0E0E0"
+                    border.color: referenceDegreeIndex === 1 ? "#2f7355" : "#C0C0C0"
+                    border.width: 1
+                    radius: 4
+                    Text {
+                        anchors.fill: parent
+                        text: "Terça"
+                        font.pixelSize: 10
+                        font.bold: true
+                        color: referenceDegreeIndex === 1 ? "#07140e" : "#333333"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: referenceDegreeIndex = 1
+                    }
+                }
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 29
+                    color: referenceDegreeIndex === 2 ? "#77d7a8" : "#E0E0E0"
+                    border.color: referenceDegreeIndex === 2 ? "#2f7355" : "#C0C0C0"
+                    border.width: 1
+                    radius: 4
+                    Text {
+                        anchors.fill: parent
+                        text: "Quinta"
+                        font.pixelSize: 10
+                        font.bold: true
+                        color: referenceDegreeIndex === 2 ? "#07140e" : "#333333"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: referenceDegreeIndex = 2
+                    }
+                }
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 29
+                    color: referenceDegreeIndex === 3 ? "#77d7a8" : "#E0E0E0"
+                    border.color: referenceDegreeIndex === 3 ? "#2f7355" : "#C0C0C0"
+                    border.width: 1
+                    radius: 4
+                    Text {
+                        anchors.fill: parent
+                        text: "Sétima"
+                        font.pixelSize: 10
+                        font.bold: true
+                        color: referenceDegreeIndex === 3 ? "#07140e" : "#333333"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: referenceDegreeIndex = 3
+                    }
+                }
+            }
+
+            Rectangle { height: 1; color: "#D0D0D0"; Layout.fillWidth: true }
+            GridLayout {
                 columns: 2
                 Layout.fillWidth: true
                 columnSpacing: 5
                 rowSpacing: 5
-                Button { text: "Fundamental"; checkable: true; checked: referenceDegreeIndex === 0; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; Layout.preferredHeight: 29; onClicked: referenceDegreeIndex = 0 }
-                Button { text: "Terça"; checkable: true; checked: referenceDegreeIndex === 1; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; Layout.preferredHeight: 29; onClicked: referenceDegreeIndex = 1 }
-                Button { text: "Quinta"; checkable: true; checked: referenceDegreeIndex === 2; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; Layout.preferredHeight: 29; onClicked: referenceDegreeIndex = 2 }
-                Button { text: "Sétima"; checkable: true; checked: referenceDegreeIndex === 3; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; Layout.preferredHeight: 29; onClicked: referenceDegreeIndex = 3 }
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 30
+                    color: autoVoicingEnabled ? "#77d7a8" : "#E0E0E0"
+                    border.color: autoVoicingEnabled ? "#2f7355" : "#C0C0C0"
+                    border.width: 1
+                    radius: 4
+                    Text {
+                        anchors.fill: parent
+                        text: autoVoicingEnabled ? "Auto voicing ON (G3-B4)" : "Auto voicing OFF"
+                        font.pixelSize: 9
+                        font.bold: true
+                        color: autoVoicingEnabled ? "#07140e" : "#333333"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: autoVoicingEnabled = !autoVoicingEnabled
+                    }
+                }
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 30
+                    color: diatonicEnharmonyEnabled ? "#77d7a8" : "#E0E0E0"
+                    border.color: diatonicEnharmonyEnabled ? "#2f7355" : "#C0C0C0"
+                    border.width: 1
+                    radius: 4
+                    Text {
+                        anchors.fill: parent
+                        text: diatonicEnharmonyEnabled ? "Enarmonia diatônica ON" : "Enarmonia diatônica OFF"
+                        font.pixelSize: 9
+                        font.bold: true
+                        color: diatonicEnharmonyEnabled ? "#07140e" : "#333333"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: diatonicEnharmonyEnabled = !diatonicEnharmonyEnabled
+                    }
+                }
             }
-
+            Label {
+                text: "• Auto voicing: Move notas para caber em G3-B4.\\n• Enarmonia: Ajusta acidentes considerando a enarmonia tonal."
+                wrapMode: Text.WordWrap
+                font.pixelSize: 9
+                color: "#666"
+                Layout.fillWidth: true
+            }
             Rectangle { height: 1; color: "#D0D0D0"; Layout.fillWidth: true }
-            Button { text: autoVoicingEnabled ? "Auto voicing ON (G3-B4)" : "Auto voicing OFF"; checkable: true; checked: autoVoicingEnabled; font.pixelSize: 9; font.bold: true; Layout.fillWidth: true; Layout.preferredHeight: 30; onClicked: autoVoicingEnabled = checked }
-            Label { text: "Move por oitavas para caber em G3-B4."; wrapMode: Text.WordWrap; font.pixelSize: 9; color: "#666"; Layout.fillWidth: true }
-            Rectangle { height: 1; color: "#D0D0D0"; Layout.fillWidth: true }
 
-            Button { text: "X"; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; Layout.preferredHeight: 29; onClicked: buildChord("X", [0, 4, 7]) }
-            Button { text: "Xm"; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; Layout.preferredHeight: 29; onClicked: buildChord("Xm", [0, 3, 7]) }
-            Button { text: "Xmaj7"; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; Layout.preferredHeight: 29; onClicked: buildChord("Xmaj7", [0, 4, 7, 11]) }
-            Button { text: "X7"; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; Layout.preferredHeight: 29; onClicked: buildChord("X7", [0, 4, 7, 10]) }
-            Button { text: "Xm7"; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; Layout.preferredHeight: 29; onClicked: buildChord("Xm7", [0, 3, 7, 10]) }
-            Button { text: "Xm7(b5)"; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; Layout.preferredHeight: 29; onClicked: buildChord("Xm7(b5)", [0, 3, 6, 10]) }
-            Button { text: "Xdim7"; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; Layout.preferredHeight: 29; onClicked: buildChord("Xdim7", [0, 3, 6, 9]) }
+            Label { text: "Acordes:"; font.bold: true; Layout.fillWidth: true }
+            GridLayout {
+                columns: 2
+                Layout.fillWidth: true
+                columnSpacing: 5
+                rowSpacing: 5
+                Button { text: "X"; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; Layout.preferredHeight: 29; onClicked: buildChord("X", [0, 4, 7]) }
+                Button { text: "Xm"; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; Layout.preferredHeight: 29; onClicked: buildChord("Xm", [0, 3, 7]) }
+                Button { text: "Xmaj7"; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; Layout.preferredHeight: 29; onClicked: buildChord("Xmaj7", [0, 4, 7, 11]) }
+                Button { text: "Xm(maj7)"; font.pixelSize: 11; font.bold: true; Layout.fillWidth: true; Layout.preferredHeight: 29; onClicked: buildChord("Xm(maj7)", [0, 3, 7, 11]) }
+                Button { text: "X7"; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; Layout.preferredHeight: 29; onClicked: buildChord("X7", [0, 4, 7, 10]) }
+                Button { text: "Xm7"; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; Layout.preferredHeight: 29; onClicked: buildChord("Xm7", [0, 3, 7, 10]) }
+                Button { text: "Xm7(b5)"; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; Layout.preferredHeight: 29; onClicked: buildChord("Xm7(b5)", [0, 3, 6, 10]) }
+                Button { text: "Xdim7"; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; Layout.preferredHeight: 29; onClicked: buildChord("Xdim7", [0, 3, 6, 9]) }
+                Button { text: "Xsus4"; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; Layout.preferredHeight: 29; onClicked: buildChord("Xsus4", [0, 5, 7]) }
+                Button { text: "Xsus2"; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; Layout.preferredHeight: 29; onClicked: buildChord("Xsus2", [0, 2, 7]) }
+                Button { text: "Xaug"; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; Layout.preferredHeight: 29; onClicked: buildChord("Xaug", [0, 4, 8]) }
+                Button { text: "X6"; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; Layout.preferredHeight: 29; onClicked: buildChord("X6", [0, 4, 7, 9]) }
+                Button { text: "Xm6"; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; Layout.preferredHeight: 29; onClicked: buildChord("Xm6", [0, 3, 7, 9]) }
+                Button { text: "X7(#6)"; font.pixelSize: 11; font.bold: true; Layout.fillWidth: true; Layout.preferredHeight: 29; onClicked: buildChord("X7(#6)", [0, 4, 7, 10], [0, 2, 4, 5]) }
+            }
 
             Rectangle { height: 1; color: "#D0D0D0"; Layout.fillWidth: true }
             Label { text: "Levadas e Viradas"; font.bold: true; Layout.fillWidth: true }
@@ -2278,6 +2523,15 @@ ${grooveButtons()}
 
             Item { height: 8 }
             Label { text: statusText; wrapMode: Text.WordWrap; horizontalAlignment: Text.AlignHCenter; font.pixelSize: 9; color: "#555"; Layout.fillWidth: true; Layout.alignment: Qt.AlignHCenter }
+            Rectangle { height: 1; color: "#D0D0D0"; Layout.fillWidth: true }
+            Label { text: "Instruções de Uso:"; font.bold: true; font.pixelSize: 10; Layout.fillWidth: true }
+            Label {
+                text: "1. Selecione uma nota ou cifra na pauta do MuseScore.\\n2. Escolha qual grau a nota representa (Fundamental, Terça, etc.) e clique no botão de acorde desejado (ex.: Xmaj7) para gerá-lo.\\n3. Para aplicar levadas: selecione o acorde gerado e clique em um botão de levada (abaixo).\\n4. 'Auto voicing' restringe as notas ao registro médio. 'Enarmonia' ajusta acidentes considerando a enarmonia tonal."
+                wrapMode: Text.WordWrap
+                font.pixelSize: 9
+                color: "#555"
+                Layout.fillWidth: true
+            }
             Rectangle { height: 1; color: "#D0D0D0"; Layout.fillWidth: true }
             Label { text: "Desenvolvido pelo professor Glauber Santiago - UFSCar\\nservidores.ufscar.br/glauber/ • sites.google.com/view/glauberia"; wrapMode: Text.WordWrap; horizontalAlignment: Text.AlignHCenter; font.pixelSize: 8; color: "#666"; Layout.fillWidth: true; Layout.alignment: Qt.AlignHCenter }
             }
